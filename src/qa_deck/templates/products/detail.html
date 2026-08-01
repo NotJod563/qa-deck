@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} — QA Deck{% endblock %}
+
+{% block content %}
+  <section class="page-heading product-heading">
+    <div>
+      <p class="eyebrow">Продукт</p>
+      <h1>{{ product.name }}</h1>
+      <p class="page-lead">{{ product.description or 'Опис ще не додано.' }}</p>
+    </div>
+    <a class="button button-secondary" href="{{ url_for('web.product_list') }}">До списку</a>
+  </section>
+
+  <section class="detail-card" aria-labelledby="details-heading">
+    <div class="detail-card-header">
+      <div>
+        <p class="eyebrow">Конфігурація</p>
+        <h2 id="details-heading">Основні параметри</h2>
+      </div>
+      <span class="status-badge"><span class="status-dot" aria-hidden="true"></span>Збережено</span>
+    </div>
+
+    <dl class="detail-list">
+      <div class="detail-row">
+        <dt>ID</dt>
+        <dd><code>{{ product.id }}</code></dd>
+      </div>
+
+      <div class="detail-row">
+        <dt>Шлях до executable</dt>
+        <dd><code>{{ product.executable_path or 'Не вказано' }}</code></dd>
+      </div>
+
+      <div class="detail-row">
+        <dt>Робочий каталог</dt>
+        <dd><code>{{ product.working_directory or 'Не вказано' }}</code></dd>
+      </div>
+
+      <div class="detail-row detail-row-top">
+        <dt>Аргументи запуску</dt>
+        <dd>
+          {% if product.launch_arguments %}
+            <ul class="argument-list">
+              {% for argument in product.launch_arguments %}
+                <li><code>{{ argument }}</code></li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <span class="muted">Не вказано</span>
+          {% endif %}
+        </dd>
+      </div>
+    </dl>
+  </section>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Новий продукт — QA Deck{% endblock %}
+
+{% block content %}
+  <section class="page-heading page-heading-compact">
+    <div>
+      <p class="eyebrow">Новий запис</p>
+      <h1>Додати продукт</h1>
+      <p class="page-lead">Збережіть основну інформацію про продукт і його запуск.</p>
+    </div>
+  </section>
+
+  {% if error %}
+    <div class="alert alert-error" role="alert">
+      <strong>Не вдалося зберегти.</strong>
+      <span>{{ error }}</span>
+    </div>
+  {% endif %}
+
+  <form class="form-card" method="post">
+    <div class="field">
+      <label for="name">Назва <span aria-hidden="true">*</span></label>
+      <input id="name" name="name" required autocomplete="off" value="{{ form.get('name', '') }}">
+      <p class="field-hint">Зрозуміла назва тестового продукту.</p>
+    </div>
+
+    <div class="field">
+      <label for="description">Опис</label>
+      <textarea id="description" name="description" rows="4">{{ form.get('description', '') }}</textarea>
+    </div>
+
+    <div class="field-grid">
+      <div class="field">
+        <label for="executable_path">Шлях до executable</label>
+        <input id="executable_path" name="executable_path" placeholder="C:\Apps\Sample\app.exe" value="{{ form.get('executable_path', '') }}">
+      </div>
+      <div class="field">
+        <label for="working_directory">Робочий каталог</label>
+        <input id="working_directory" name="working_directory" placeholder="C:\Apps\Sample" value="{{ form.get('working_directory', '') }}">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="launch_arguments">Аргументи запуску</label>
+      <textarea class="code-input" id="launch_arguments" name="launch_arguments" rows="5" placeholder="--profile&#10;trial">{{ form.get('launch_arguments', '') }}</textarea>
+      <p class="field-hint">Один аргумент на рядок.</p>
+    </div>
+
+    <div class="form-actions">
+      <a class="button button-secondary" href="{{ url_for('web.product_list') }}">Скасувати</a>
+      <button class="button" type="submit">Зберегти продукт</button>
+    </div>
+  </form>
+{% endblock %}

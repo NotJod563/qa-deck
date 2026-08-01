@@ -1,0 +1,70 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test, coverage, type-checking, linting, and tooling caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.cache/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+wheels/
+pip-wheel-metadata/
+
+# Local environment, secrets, and machine-specific configuration
+.env
+.env.*
+!.env.example
+*.local.env
+config.local.*
+secrets.local.*
+
+# Editor and IDE settings
+.vscode/
+.idea/
+*.iml
+
+# Windows temporary and metadata files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+~$*
+
+# Application runtime and instance data
+instance/
+/runtime/
+/var/
+/data/
+/logs/
+/snapshots/
+/backups/
+*.log
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Local Codex instructions
+AGENTS.md

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Продукти — QA Deck{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Робочий простір</p>
+      <h1>Продукти</h1>
+      <p class="page-lead">Тестові продукти та їхні локальні налаштування.</p>
+    </div>
+    <a class="button" href="{{ url_for('web.product_new') }}">Додати продукт</a>
+  </section>
+
+  {% if products %}
+    <div class="product-grid">
+      {% for product in products %}
+        <article class="product-card">
+          <div class="product-card-header">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="product-id">{{ product.id }}</span>
+          </div>
+          <h2>
+            <a href="{{ url_for('web.product_detail', product_id=product.id) }}">
+              {{ product.name }}
+            </a>
+          </h2>
+          <p>{{ product.description or 'Опис ще не додано.' }}</p>
+          <div class="product-card-footer">
+            <span class="path-preview">{{ product.executable_path or 'Executable не вказано' }}</span>
+            <a class="text-link" href="{{ url_for('web.product_detail', product_id=product.id) }}">
+              Відкрити <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <section class="empty-state">
+      <div class="empty-icon" aria-hidden="true">+</div>
+      <h2>Ще немає збережених продуктів.</h2>
+      <p>Додайте перший продукт, щоб зберегти його основні шляхи та параметри запуску.</p>
+      <a class="button" href="{{ url_for('web.product_new') }}">Створити перший продукт</a>
+    </section>
+  {% endif %}
+{% endblock %}

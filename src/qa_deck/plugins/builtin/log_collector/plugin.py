@@ -1,0 +1,238 @@
+"""Inspection and bounded ZIP collection of configured product logs."""
+
+import os
+import stat
+from datetime import UTC, datetime
+from logging import Logger
+from pathlib import Path
+
+from qa_deck.domain import PluginConfiguration, Product
+from qa_deck.plugins.api import Plugin, PluginAction, RiskLevel
+from qa_deck.plugins.builtin.log_collector.collection import (
+    LogCollectionResult,
+    LogCollectionService,
+)
+from qa_deck.plugins.builtin.log_collector.models import (
+    LogCollectorConfiguration,
+    LogInspectionResult,
+    LogSourceInspection,
+)
+from qa_deck.storage import OperationLogRepository
+
+
+class LogCollector:
+    """Inspect configured product logs and collect them into a safe ZIP."""
+
+    identifier = "log-collector"
+    display_name = "Log Collector"
+    description = (
+        "Перевіряє джерела логів продукту та збирає їх у тимчасовий ZIP."
+    )
+    version = "0.1.0"
+
+    def __init__(self, max_entries: int = 1_000) -> None:
+        if max_entries < 1:
+            raise ValueError("max_entries must be positive")
+        self.max_entries = max_entries
+
+    def get_actions(self) -> list[PluginAction]:
+        return [
+            PluginAction(
+                identifier="inspect-log-sources",
+                display_name="Перевірити джерела логів",
+                description="Зібрати обмежену статистику без читання вмісту логів.",
+                risk_level=RiskLevel.SAFE,
+            ),
+            PluginAction(
+                identifier="collect-logs",
+                display_name="Зібрати логи в ZIP",
+                description=(
+                    "Створити тимчасовий ZIP-архів із налаштованих "
+                    "логів продукту."
+                ),
+                risk_level=RiskLevel.SAFE,
+            ),
+        ]
+
+    def create_configuration(
+        self,
+        product_id: str,
+        enabled: bool,
+        log_directories: list[str],
+    ) -> PluginConfiguration:
+        typed = LogCollectorConfiguration.from_values(log_directories)
+        if enabled and not typed.log_directories:
+            raise ValueError("Додайте хоча б один каталог логів.")
+        return PluginConfiguration(
+            product_id=product_id,
+            plugin_identifier=self.identifier,
+            enabled=enabled,
+            settings=typed.to_settings(),
+        )
+
+    def typed_configuration(
+        self, configuration: PluginConfiguration
+    ) -> LogCollectorConfiguration:
+        if configuration.plugin_identifier != self.identifier:
+            raise ValueError("Конфігурація належить іншому плагіну.")
+        return LogCollectorConfiguration.from_plugin_configuration(configuration)
+
+    def inspect(self, configuration: PluginConfiguration) -> LogInspectionResult:
+        typed = self.typed_configuration(configuration)
+        if not configuration.enabled:
+            return LogInspectionResult(
+                enabled=False,
+                sources=(),
+                message="Log Collector вимкнений для цього продукту.",
+            )
+        return LogInspectionResult(
+            enabled=True,
+            sources=tuple(self._inspect_source(path) for path in typed.log_directories),
+        )
+
+    def collect(
+        self,
+        *,
+        product: Product,
+        configuration: PluginConfiguration | None,
+        max_files: int,
+        max_total_bytes: int,
+        operation_logs: OperationLogRepository,
+        logger: Logger,
+    ) -> LogCollectionResult:
+        """Build a temporary bounded ZIP for one product configuration."""
+        service = LogCollectionService(
+            max_files=max_files,
+            max_total_bytes=max_total_bytes,
+            max_entries=self.max_entries,
+            operation_logs=operation_logs,
+            logger=logger,
+        )
+        return service.collect(product, configuration)
+
+    def _inspect_source(self, configured_path: str) -> LogSourceInspection:
+        root = Path(configured_path)
+        try:
+            root_stat = root.lstat()
+            root_is_link = _is_link_like(root, root_stat)
+        except FileNotFoundError:
+            return LogSourceInspection(
+                configured_path=configured_path,
+                exists=False,
+                is_directory=False,
+                message="Каталог не знайдено.",
+            )
+        except OSError:
+            return LogSourceInspection(
+                configured_path=configured_path,
+                exists=None,
+                is_directory=None,
+                message="Не вдалося перевірити каталог логів.",
+            )
+
+        if root_is_link:
+            return LogSourceInspection(
+                configured_path=configured_path,
+                exists=True,
+                is_directory=False,
+                message=(
+                    "Символічні посилання та junction не скануються як "
+                    "кореневі каталоги логів."
+                ),
+            )
+
+        if not stat.S_ISDIR(root_stat.st_mode):
+            return LogSourceInspection(
+                configured_path=configured_path,
+                exists=True,
+                is_directory=False,
+                message="Вказаний шлях не є каталогом.",
+            )
+
+        file_count = 0
+        total_size = 0
+        latest_timestamp: float | None = None
+        entries_seen = 0
+        pending = [root]
+        try:
+            canonical_root = root.resolve(strict=True)
+            while pending and entries_seen < self.max_entries:
+                directory = pending.pop()
+                directory_metadata = directory.lstat()
+                if (
+                    _is_link_like(directory, directory_metadata)
+                    or not stat.S_ISDIR(directory_metadata.st_mode)
+                    or not directory.resolve(strict=True).is_relative_to(
+                        canonical_root
+                    )
+                ):
+                    raise OSError("Unsafe log directory")
+                with os.scandir(directory) as entries:
+                    for entry in entries:
+                        if entries_seen >= self.max_entries:
+                            break
+                        entries_seen += 1
+                        if entry.is_dir(follow_symlinks=False):
+                            pending.append(Path(entry.path))
+                        elif entry.is_file(follow_symlinks=False):
+                            metadata = entry.stat(follow_symlinks=False)
+                            file_count += 1
+                            total_size += metadata.st_size
+                            if (
+                                latest_timestamp is None
+                                or metadata.st_mtime > latest_timestamp
+                            ):
+                                latest_timestamp = metadata.st_mtime
+        except OSError:
+            return LogSourceInspection(
+                configured_path=configured_path,
+                exists=True,
+                is_directory=True,
+                file_count=file_count,
+                total_size=total_size,
+                latest_modified=self._as_datetime(latest_timestamp),
+                truncated=bool(pending),
+                message="Сканування каталогу не вдалося завершити.",
+            )
+
+        truncated = bool(pending) or entries_seen >= self.max_entries
+        return LogSourceInspection(
+            configured_path=configured_path,
+            exists=True,
+            is_directory=True,
+            file_count=file_count,
+            total_size=total_size,
+            latest_modified=self._as_datetime(latest_timestamp),
+            truncated=truncated,
+            message=(
+                "Досягнуто ліміт сканування; показано частковий результат."
+                if truncated
+                else None
+            ),
+        )
+
+    @staticmethod
+    def _as_datetime(timestamp: float | None) -> datetime | None:
+        if timestamp is None:
+            return None
+        try:
+            return datetime.fromtimestamp(timestamp, tz=UTC)
+        except (OSError, OverflowError, ValueError):
+            return None
+
+
+def create_log_collector() -> Plugin:
+    """Create the built-in Log Collector plugin."""
+    return LogCollector()
+
+
+def _is_link_like(path: Path, metadata: os.stat_result) -> bool:
+    """Detect symlinks and Windows reparse-point directories."""
+    if stat.S_ISLNK(metadata.st_mode) or path.is_symlink():
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    if is_junction is not None and is_junction():
+        return True
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    attributes = getattr(metadata, "st_file_attributes", 0)
+    return bool(reparse_flag and attributes & reparse_flag)

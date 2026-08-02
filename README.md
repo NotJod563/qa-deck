@@ -12,11 +12,19 @@ QA Deck — локальний Flask-застосунок для роботи з
 - автоматичне створення id;
 - темний адаптивний вебінтерфейс;
 - health endpoint `/health`;
+- Plugin API, Plugin Manager і виявлення вбудованих плагінів;
+- read-only перевірка executable через Executable Inspector;
+- окремі конфігурації плагінів для кожного продукту;
+- License Manager із перевіркою стану, Change Plan, backup, приховуванням і відновленням ліцензійних файлів;
+- Log Collector із перевіркою джерел та формуванням ZIP-архіву;
+- локальна історія операцій QA Deck;
 - перевірка коду за допомогою `pytest` і Ruff.
 
-Дані зберігаються локально в `products.json` усередині Flask instance-каталогу. Цей файл не додається до Git.
+Дані зберігаються локально в JSON-файлах усередині Flask instance-каталогу. Ці файли не додаються до Git.
 
-Плагіни, workflows, snapshots і файлові операції ще не реалізовані.
+Workflows, snapshots, Registry operations, Jira Integration і запуск executable ще не реалізовані.
+
+Проєкт містить 40 автоматичних тестів основного функціоналу.
 
 ## Встановлення
 
@@ -48,6 +56,7 @@ python -m ruff check .
 ## Документація
 
 - [Контекст проєкту](docs/PROJECT_CONTEXT.md)
-- [Архітектурний план](docs/DECISIONS.md)
+- [Архітектурні рішення](docs/DECISIONS.md)
 - [Дорожня карта](docs/ROADMAP.md)
 - [Звіт за тиждень 1](docs/reports/week-01.md)
+- [Звіт за тиждень 2](docs/reports/week-02.md)

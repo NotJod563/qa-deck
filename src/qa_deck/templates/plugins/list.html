@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Плагіни — QA Deck{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Розширення</p>
+      <h1>Доступні плагіни</h1>
+      <p class="page-lead">Вбудовані можливості, які QA Deck може підключати до продуктів.</p>
+      <p class="page-lead">Наявність плагіна означає, що можливість доступна. Налаштування зберігаються окремо для кожного продукту.</p>
+    </div>
+  </section>
+
+  {% if plugins %}
+    <div class="plugin-grid">
+      {% for plugin in plugins %}
+        <article class="plugin-card">
+          <div class="plugin-meta">
+            <code>{{ plugin.identifier }}</code>
+            <span>v{{ plugin.version }}</span>
+          </div>
+          <h2>{{ plugin.display_name }}</h2>
+          <p>{{ plugin.description }}</p>
+
+          <div class="plugin-actions">
+            <h3>Доступні дії</h3>
+            {% if plugin.actions_error %}
+              <p class="alert alert-error" role="status">{{ plugin.actions_error }}</p>
+            {% elif plugin.actions %}
+              <ul class="action-list">
+                {% for action in plugin.actions %}
+                  <li>
+                    <div>
+                      <strong>{{ action.display_name }}</strong>
+                      <span>{{ action.description }}</span>
+                    </div>
+                    <span class="risk-badge risk-{{ action.risk_level.value }}">
+                      {{ action.risk_level.value }}
+                    </span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="muted">Плагін ще не оголосив дій.</p>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <section class="empty-state">
+      <div class="empty-icon" aria-hidden="true">+</div>
+      <h2>Вбудовані плагіни ще не додані.</h2>
+      <p>Перший плагін з’явиться тут після підключення до Plugin Manager.</p>
+    </section>
+  {% endif %}
+{% endblock %}

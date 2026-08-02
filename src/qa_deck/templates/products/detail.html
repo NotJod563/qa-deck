@@ -3,54 +3,229 @@
 {% block title %}{{ product.name }} — QA Deck{% endblock %}
 
 {% block content %}
-  <section class="page-heading product-heading">
-    <div>
-      <p class="eyebrow">Продукт</p>
-      <h1>{{ product.name }}</h1>
-      <p class="page-lead">{{ product.description or 'Опис ще не додано.' }}</p>
+  <section id="product-overview" class="product-overview" aria-labelledby="product-overview-heading">
+    <div class="page-heading product-heading">
+      <div>
+        <p class="eyebrow">Продукт</p>
+        <h1 id="product-overview-heading">{{ product.name }}</h1>
+        <p class="page-lead">{{ product.description or 'Опис ще не додано.' }}</p>
+      </div>
+      <a class="button button-secondary" href="{{ url_for('web.product_list') }}">До списку</a>
     </div>
-    <a class="button button-secondary" href="{{ url_for('web.product_list') }}">До списку</a>
+
+    <div class="detail-card" aria-labelledby="details-heading">
+      <div class="detail-card-header">
+        <div>
+          <p class="eyebrow">Конфігурація</p>
+          <h2 id="details-heading">Основні параметри</h2>
+        </div>
+        <span class="status-badge"><span class="status-dot" aria-hidden="true"></span>Збережено</span>
+      </div>
+      <dl class="detail-list">
+        <div class="detail-row"><dt>ID</dt><dd><code>{{ product.id }}</code></dd></div>
+        <div class="detail-row"><dt>Шлях до executable</dt><dd><code>{{ product.executable_path or 'Не вказано' }}</code></dd></div>
+        <div class="detail-row"><dt>Робочий каталог</dt><dd><code>{{ product.working_directory or 'Не вказано' }}</code></dd></div>
+        <div class="detail-row detail-row-top">
+          <dt>Аргументи запуску</dt>
+          <dd>
+            {% if product.launch_arguments %}
+              <ul class="argument-list">{% for argument in product.launch_arguments %}<li><code>{{ argument }}</code></li>{% endfor %}</ul>
+            {% else %}<span class="muted">Не вказано</span>{% endif %}
+          </dd>
+        </div>
+      </dl>
+    </div>
   </section>
 
-  <section class="detail-card" aria-labelledby="details-heading">
-    <div class="detail-card-header">
+  <section id="executable-inspector" class="plugin-panel" aria-labelledby="executable-inspector-heading">
+    <header class="plugin-panel-heading">
       <div>
-        <p class="eyebrow">Конфігурація</p>
-        <h2 id="details-heading">Основні параметри</h2>
+        <p class="eyebrow">Вбудований плагін</p>
+        <h2 id="executable-inspector-heading">Executable Inspector</h2>
+        <p>Перевіряє наявність файла та читає лише базові метадані.</p>
       </div>
-      <span class="status-badge"><span class="status-dot" aria-hidden="true"></span>Збережено</span>
+      <div class="panel-badges"><span class="risk-badge risk-safe">SAFE</span><span class="state-badge state-ready">Доступно</span></div>
+    </header>
+    <div class="plugin-action-toolbar" aria-label="Дії Executable Inspector">
+      <form method="post" action="{{ url_for('web.product_inspect_executable', product_id=product.id, _anchor='executable-inspector') }}">
+        <button class="button" type="submit">Перевірити executable</button>
+      </form>
+      <span class="toolbar-note">Файл не запускається, його вміст не читається.</span>
     </div>
-
-    <dl class="detail-list">
-      <div class="detail-row">
-        <dt>ID</dt>
-        <dd><code>{{ product.id }}</code></dd>
-      </div>
-
-      <div class="detail-row">
-        <dt>Шлях до executable</dt>
-        <dd><code>{{ product.executable_path or 'Не вказано' }}</code></dd>
-      </div>
-
-      <div class="detail-row">
-        <dt>Робочий каталог</dt>
-        <dd><code>{{ product.working_directory or 'Не вказано' }}</code></dd>
-      </div>
-
-      <div class="detail-row detail-row-top">
-        <dt>Аргументи запуску</dt>
-        <dd>
-          {% if product.launch_arguments %}
-            <ul class="argument-list">
-              {% for argument in product.launch_arguments %}
-                <li><code>{{ argument }}</code></li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <span class="muted">Не вказано</span>
+    {% if inspection_result %}
+      {% set is_available = inspection_result.status.value == 'available' %}
+      <div class="plugin-result-slot {{ 'inspection-success' if is_available else 'inspection-problem' }}" role="status">
+        <div class="result-heading">
+          <h3>Результат перевірки</h3>
+          <span class="result-status">
+            {% if is_available %}Файл доступний{% elif inspection_result.status.value == 'not_configured' %}Шлях не вказано{% elif inspection_result.status.value == 'not_found' %}Файл не знайдено{% elif inspection_result.status.value == 'not_a_file' %}Це не файл{% else %}Помилка перевірки{% endif %}
+          </span>
+        </div>
+        {% if inspection_result.message %}<p>{{ inspection_result.message }}</p>{% endif %}
+        <dl class="inspection-details">
+          <div><dt>Шлях</dt><dd><code>{{ inspection_result.original_path or 'Не вказано' }}</code></dd></div>
+          {% if is_available %}
+            <div><dt>Ім’я файла</dt><dd>{{ inspection_result.file_name }}</dd></div>
+            <div><dt>Розширення</dt><dd><code>{{ inspection_result.extension or 'Без розширення' }}</code></dd></div>
+            <div><dt>Розмір</dt><dd>{{ inspection_result.size_bytes }} байт</dd></div>
+            <div><dt>Остання зміна</dt><dd>{{ inspection_result.modified_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd></div>
           {% endif %}
-        </dd>
+        </dl>
       </div>
-    </dl>
+    {% else %}<p class="result-placeholder muted">Перевірку ще не запускали.</p>{% endif %}
+  </section>
+
+  <section class="resource-section" aria-labelledby="resources-heading">
+    <div class="section-heading">
+      <p class="eyebrow">Конфігурація {{ product.name }}</p>
+      <h2 id="resources-heading">Ресурси та плагіни продукту</h2>
+      <p>Налаштування нижче належать лише цьому продукту.</p>
+    </div>
+    {% if configuration_error %}<p class="alert alert-error" role="alert">{{ configuration_error }}</p>{% endif %}
+
+    <article id="license-manager" class="plugin-panel" aria-labelledby="license-manager-heading">
+      <header class="plugin-panel-heading">
+        <div>
+          <p class="eyebrow">Ресурси продукту</p>
+          <h3 id="license-manager-heading">License Manager</h3>
+          <p>Перевіряє, резервує, тимчасово приховує та відновлює ліцензійні файли.</p>
+        </div>
+        <div class="panel-badges">
+          <span class="risk-badge risk-caution">CAUTION</span>
+          {% if not license_plugin_available %}<span class="state-badge state-unavailable">Недоступно</span>
+          {% elif not license_configuration %}<span class="state-badge">Не налаштовано</span>
+          {% elif license_configuration.enabled %}<span class="state-badge state-enabled">Увімкнено</span>
+          {% else %}<span class="state-badge">Вимкнено</span>{% endif %}
+        </div>
+      </header>
+
+      {% if not license_plugin_available %}
+        <p class="alert alert-error" role="status">{{ license_plugin_error }}</p>
+      {% else %}
+        <dl class="plugin-config-summary">
+          <div><dt>Каталог</dt><dd><code>{{ license_typed.license_directory if license_typed and license_typed.license_directory else 'Не задано' }}</code></dd></div>
+          <div><dt>Файлів</dt><dd>{{ license_typed.license_files | length if license_typed else 0 }}</dd></div>
+          <div><dt>Стан</dt><dd>{{ 'Увімкнено' if license_configuration and license_configuration.enabled else ('Вимкнено' if license_configuration else 'Не налаштовано') }}</dd></div>
+        </dl>
+
+        {% if license_configuration and license_configuration.enabled %}
+          <div class="plugin-action-toolbar" aria-label="Дії License Manager">
+            <form method="post" action="{{ url_for('web.inspect_licenses', product_id=product.id, _anchor='license-manager') }}"><button class="button" type="submit">Перевірити стан</button></form>
+            <form method="post" action="{{ url_for('web.preview_hide_licenses', product_id=product.id, _anchor='license-manager') }}"><button class="button button-secondary" type="submit">Підготувати приховування</button></form>
+            <form method="post" action="{{ url_for('web.preview_restore_licenses', product_id=product.id, _anchor='license-manager') }}"><button class="button button-secondary" type="submit">Підготувати відновлення</button></form>
+            <form method="post" action="{{ url_for('web.inspect_license_backup', product_id=product.id, _anchor='license-manager') }}"><button class="button button-secondary" type="submit">Перевірити backup</button></form>
+          </div>
+        {% elif license_configuration %}<p class="toolbar-note">Плагін вимкнений. Налаштування збережені, але дії недоступні.</p>
+        {% else %}<p class="toolbar-note">Збережіть налаштування, щоб відкрити дії License Manager.</p>{% endif %}
+
+        <div class="plugin-result-slot" data-plugin-result="license-manager">
+          {% if operation_result %}
+            <div class="result-heading"><h4>Результат операції</h4><span class="result-status">{{ operation_result.status.value }}</span></div>
+            <p role="status">{{ operation_result.summary }}</p>
+            <p>Змінено: {{ operation_result.changed_count }} · Пропущено: {{ operation_result.skipped_count }} · Помилок: {{ operation_result.error_count }}</p>
+            {% if operation_result.rollback_status %}<p><strong>Rollback:</strong> {{ operation_result.rollback_status.value }}</p>{% endif %}
+            {% for warning in operation_result.warnings %}<p class="alert alert-error" role="alert">{{ warning }}</p>{% endfor %}
+          {% elif change_plan %}
+            <div class="result-heading"><h4>Change Plan: {{ change_plan.action_identifier }}</h4><span class="risk-badge risk-{{ change_plan.risk_level.value }}">{{ change_plan.risk_level.value | upper }}</span></div>
+            <p>Заплановано: {{ change_plan.changes | length }} · Пропущено: {{ change_plan.skipped | length }}</p>
+            {% if change_plan.changes %}<ul class="compact-list">{% for change in change_plan.changes %}<li><code>{{ change.source_name }}</code> → <code>{{ change.target_name }}</code></li>{% endfor %}</ul>{% endif %}
+            {% if change_plan.skipped %}<details class="inline-details"><summary>Пропущені елементи — {{ change_plan.skipped | length }}</summary><ul class="compact-list">{% for item in change_plan.skipped %}<li><code>{{ item.filename }}</code> — {{ item.reason }}</li>{% endfor %}</ul></details>{% endif %}
+            <p class="muted">Перед першою зміною буде створено локальний backup.</p>
+            {% for warning in change_plan.warnings %}<p class="alert alert-error" role="alert">{{ warning }}</p>{% endfor %}
+            {% if change_plan.blocking_error %}<p class="alert alert-error" role="alert">Спочатку усуньте конфлікт або помилку. Виконання цього плану заблоковано.</p>{% endif %}
+            <div class="plugin-action-toolbar plan-actions">
+              {% if change_plan.has_changes and not change_plan.blocking_error %}
+                {% if change_plan.action_identifier == 'hide-licenses' %}<form method="post" action="{{ url_for('web.confirm_hide_licenses', product_id=product.id, _anchor='license-manager') }}">
+                {% else %}<form method="post" action="{{ url_for('web.confirm_restore_licenses', product_id=product.id, _anchor='license-manager') }}">{% endif %}
+                  <input type="hidden" name="fingerprint" value="{{ change_plan.fingerprint }}">
+                  <button class="button" type="submit" name="confirm" value="yes">Підтвердити й виконати</button>
+                </form>
+              {% endif %}
+              <a class="button button-secondary" href="{{ url_for('web.product_detail', product_id=product.id, _anchor='license-manager') }}">Скасувати</a>
+            </div>
+          {% elif license_result %}
+            <div class="result-heading"><h4>Стан ліцензій</h4><span class="result-status">{{ license_result.status.value }}</span></div>
+            {% if license_result.message %}<p role="status">{{ license_result.message }}</p>{% endif %}
+            {% if license_result.files %}<div class="table-scroll"><table class="result-table"><thead><tr><th>Файл</th><th>Статус</th><th>Пояснення</th></tr></thead><tbody>{% for item in license_result.files %}<tr><td><code>{{ item.filename }}</code></td><td><strong>{{ item.status.value }}</strong></td><td>{{ item.message }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+          {% elif backup_result %}
+            <div class="result-heading"><h4>Стан backup</h4><span class="result-status">{{ 'Доступний' if backup_result.has_backup else 'Не знайдено' }}</span></div>
+            {% if backup_result.message %}<p role="status">{{ backup_result.message }}</p>{% endif %}
+            <p>Операцій: {{ backup_result.operation_count }} · Файлів в останньому backup: {{ backup_result.file_count }} · Manifest: {{ 'доступний' if backup_result.manifest_available else 'недоступний' }}</p>
+            {% if backup_result.latest_timestamp %}<p>Останній backup: {{ backup_result.latest_timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }} · {{ backup_result.latest_action }}</p>{% endif %}
+          {% elif license_error %}<p class="alert alert-error" role="alert">{{ license_error }}</p>
+          {% else %}<p class="result-placeholder muted">Оберіть дію, щоб побачити поточний результат.</p>{% endif %}
+        </div>
+
+        <details class="plugin-settings" {% if not license_configuration or license_error or license_form or configuration_error %}open{% endif %}>
+          <summary>Налаштування License Manager</summary>
+          <form class="plugin-form" method="post" action="{{ url_for('web.save_license_manager_configuration', product_id=product.id, _anchor='license-manager') }}">
+            <label class="checkbox-field"><input type="checkbox" name="enabled" {% if (license_form and license_form.get('enabled')) or (not license_form and license_configuration and license_configuration.enabled) %}checked{% endif %}><span>Увімкнути для цього продукту</span></label>
+            <label><span>Каталог ліцензій</span><input name="license_directory" value="{{ license_form.get('license_directory', '') if license_form else (license_typed.license_directory if license_typed else '') }}" placeholder="C:\ProgramData\Sample\Licenses"></label>
+            <label><span>Ліцензійні файли — одне ім’я на рядок</span><textarea name="license_files" rows="4" placeholder="license.dat&#10;trial.lic">{{ license_form.get('license_files', '') if license_form else (license_typed.license_files | join('\n') if license_typed else '') }}</textarea></label>
+            <button class="button" type="submit">Зберегти налаштування</button>
+          </form>
+        </details>
+      {% endif %}
+    </article>
+
+    <article id="log-collector" class="plugin-panel" aria-labelledby="log-collector-heading">
+      <header class="plugin-panel-heading">
+        <div><p class="eyebrow">Логи продукту</p><h3 id="log-collector-heading">Log Collector</h3><p>Перевіряє джерела логів продукту та збирає їх у тимчасовий ZIP-архів.</p></div>
+        <div class="panel-badges"><span class="risk-badge risk-safe">SAFE</span>
+          {% if not log_plugin_available %}<span class="state-badge state-unavailable">Недоступно</span>
+          {% elif not log_configuration %}<span class="state-badge">Не налаштовано</span>
+          {% elif log_configuration.enabled %}<span class="state-badge state-enabled">Увімкнено</span>
+          {% else %}<span class="state-badge">Вимкнено</span>{% endif %}
+        </div>
+      </header>
+      {% if not log_plugin_available %}
+        <p class="alert alert-error" role="status">{{ log_plugin_error }}</p>
+      {% else %}
+        <dl class="plugin-config-summary">
+          <div><dt>Каталогів</dt><dd>{{ log_typed.log_directories | length if log_typed else 0 }}</dd></div>
+          <div><dt>Стан</dt><dd>{{ 'Увімкнено' if log_configuration and log_configuration.enabled else ('Вимкнено' if log_configuration else 'Не налаштовано') }}</dd></div>
+        </dl>
+        {% if log_configuration and log_configuration.enabled %}
+          <div class="plugin-action-toolbar" aria-label="Дії Log Collector">
+            <form method="post" action="{{ url_for('web.inspect_log_sources', product_id=product.id, _anchor='log-collector') }}"><button class="button" type="submit">Перевірити джерела логів</button></form>
+            {% if log_typed and log_typed.log_directories %}<form method="post" action="{{ url_for('web.collect_logs', product_id=product.id, _anchor='log-collector') }}"><button class="button button-secondary" type="submit">Зібрати логи в ZIP</button></form>{% endif %}
+            <span class="toolbar-note">Архів міститиме фактичний вміст лог-файлів і може містити конфіденційні дані.</span>
+          </div>
+        {% elif log_configuration %}<p class="toolbar-note">Плагін вимкнений. Налаштування збережені, але перевірка недоступна.</p>
+        {% else %}<p class="toolbar-note">Збережіть налаштування, щоб перевірити джерела логів.</p>{% endif %}
+
+        <div class="plugin-result-slot" data-plugin-result="log-collector">
+          {% if log_collection_result %}
+            <div class="result-heading"><h4>Результат збору логів</h4><span class="result-status">{{ log_collection_result.status.value }}</span></div>
+            <p role="status">{{ log_collection_result.message }}</p>
+            <p>Додано: {{ log_collection_result.file_count }} · Пропущено: {{ log_collection_result.skipped | length }} · Розмір: {{ log_collection_result.total_size }} байт</p>
+            {% for warning in log_collection_result.warnings %}<p class="alert alert-error" role="alert">{{ warning }}</p>{% endfor %}
+          {% elif log_result %}
+            <div class="result-heading"><h4>Результат перевірки</h4><span class="result-status">{{ log_result.sources | length }} джерел</span></div>
+            {% if log_result.message %}<p role="status">{{ log_result.message }}</p>{% endif %}
+            {% if log_result.sources %}<div class="table-scroll"><table class="result-table"><thead><tr><th>Шлях</th><th>Існує / каталог</th><th>Файли</th><th>Розмір</th><th>Остання зміна</th><th>Ліміт</th></tr></thead><tbody>{% for source in log_result.sources %}<tr><td><code>{{ source.configured_path }}</code>{% if source.message %}<br><span class="muted">{{ source.message }}</span>{% endif %}</td><td>{{ 'так' if source.exists else ('ні' if source.exists is not none else 'невідомо') }} / {{ 'так' if source.is_directory else ('ні' if source.is_directory is not none else 'невідомо') }}</td><td>{{ source.file_count }}</td><td>{{ source.total_size }} байт</td><td>{{ source.latest_modified.strftime('%Y-%m-%d %H:%M:%S UTC') if source.latest_modified else '—' }}</td><td>{{ 'так' if source.truncated else 'ні' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+          {% elif log_error %}<p class="alert alert-error" role="alert">{{ log_error }}</p>
+          {% else %}<p class="result-placeholder muted">Перевірку джерел логів ще не запускали.</p>{% endif %}
+        </div>
+
+        <details class="plugin-settings" {% if not log_configuration or log_error or log_form or configuration_error %}open{% endif %}>
+          <summary>Налаштування Log Collector</summary>
+          <form class="plugin-form" method="post" action="{{ url_for('web.save_log_collector_configuration', product_id=product.id, _anchor='log-collector') }}">
+            <label class="checkbox-field"><input type="checkbox" name="enabled" {% if (log_form and log_form.get('enabled')) or (not log_form and log_configuration and log_configuration.enabled) %}checked{% endif %}><span>Увімкнути для цього продукту</span></label>
+            <label><span>Каталоги логів — один шлях на рядок</span><textarea name="log_directories" rows="4" placeholder="C:\ProgramData\Sample\Logs">{{ log_form.get('log_directories', '') if log_form else (log_typed.log_directories | join('\n') if log_typed else '') }}</textarea></label>
+            <button class="button" type="submit">Зберегти налаштування</button>
+          </form>
+        </details>
+      {% endif %}
+    </article>
+
+    <details id="operation-logs" class="operation-logs-panel">
+      <summary>Історія операцій QA Deck — останні {{ operation_logs | length }}</summary>
+      <p class="muted">Тут зберігаються результати дій плагінів: приховування, відновлення, збір логів і помилки.</p>
+      {% if operation_log_error %}<p class="alert alert-error" role="alert">{{ operation_log_error }}</p>{% endif %}
+      {% if operation_logs %}
+        <div class="table-scroll"><table class="result-table"><thead><tr><th>Час</th><th>Дія</th><th>Статус</th><th>Підсумок</th></tr></thead><tbody>{% for log in operation_logs %}<tr><td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}</td><td>{{ log.action_identifier }}</td><td>{{ log.status.value }}</td><td>{{ log.summary }}</td></tr>{% endfor %}</tbody></table></div>
+      {% elif not operation_log_error %}<p class="muted">Журнал операцій поки порожній.</p>{% endif %}
+    </details>
   </section>
 {% endblock %}

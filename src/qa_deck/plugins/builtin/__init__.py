@@ -14,6 +14,10 @@ from qa_deck.plugins.builtin.log_collector import (
     LogCollector,
     create_log_collector,
 )
+from qa_deck.plugins.builtin.windows_registry import (
+    WindowsRegistry,
+    create_windows_registry,
+)
 
 __all__ = [
     "ExecutableInspectionResult",
@@ -21,7 +25,9 @@ __all__ = [
     "ExecutableInspector",
     "LicenseManager",
     "LogCollector",
+    "WindowsRegistry",
     "create_executable_inspector",
     "create_license_manager",
     "create_log_collector",
+    "create_windows_registry",
 ]

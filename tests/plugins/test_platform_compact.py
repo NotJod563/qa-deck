@@ -18,6 +18,7 @@ def test_builtin_plugins_load_with_expected_actions(tmp_path: Path) -> None:
         "qa_deck.executable_inspector",
         "license-manager",
         "log-collector",
+        "windows-registry",
     }
     assert {
         action.identifier for action in plugins["license-manager"].get_actions()
@@ -32,6 +33,22 @@ def test_builtin_plugins_load_with_expected_actions(tmp_path: Path) -> None:
         for action in plugins["log-collector"].get_actions()
     }
     assert log_actions["collect-logs"].risk_level is RiskLevel.SAFE
+    assert {
+        action.identifier
+        for action in plugins["windows-registry"].get_actions()
+    } == {
+        "inspect-registry",
+        "preview-registry-preset",
+        "apply-registry-preset-values",
+    }
+    registry_actions = {
+        action.identifier: action
+        for action in plugins["windows-registry"].get_actions()
+    }
+    assert (
+        registry_actions["apply-registry-preset-values"].risk_level
+        is RiskLevel.CAUTION
+    )
 
 
 def test_duplicate_plugin_identifier_is_rejected() -> None:

@@ -1,0 +1,28 @@
+<fieldset class="environment-profile-editor">
+  <legend>{{ 'Редагування profile' if profile else 'Новий profile' }}</legend>
+  <label><span>Назва</span><input name="name" maxlength="100" value="{{ profile_form.get('name', profile.name if profile else '') }}" placeholder="QA Debug" required></label>
+  <label>
+    <span>Windows Registry preset</span>
+    {% set selected_preset = profile_form.get('registry_preset_id', profile.registry_preset_id if profile else '') %}
+    <select name="registry_preset_id">
+      <option value="">Не включати</option>
+      {% for preset_option in registry_typed.presets if registry_typed %}<option value="{{ preset_option.id }}" {% if selected_preset == preset_option.id %}selected{% endif %}>{{ preset_option.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <section class="environment-profile-license-editor">
+    <h5>Ліцензії</h5>
+    {% if license_typed and license_typed.license_files %}
+      {% for filename in license_typed.license_files %}
+        {% set saved_license = profile.license_states | selectattr('resource_id', 'equalto', filename) | first if profile else none %}
+        {% set include_name = 'include_license__' ~ filename %}
+        {% set state_name = 'license_state__' ~ filename %}
+        {% set included = profile_form.get(include_name) == 'on' if profile_form else saved_license is not none %}
+        {% set selected_state = profile_form.get(state_name, saved_license.desired_state.value if saved_license else 'active') %}
+        <div class="environment-profile-license-row">
+          <label class="preset-include-control"><input type="checkbox" name="{{ include_name }}" {% if included %}checked{% endif %}><span>{{ filename }}</span></label>
+          <label><span>Бажаний стан</span><select name="{{ state_name }}"><option value="active" {% if selected_state == 'active' %}selected{% endif %}>Активна</option><option value="hidden" {% if selected_state == 'hidden' %}selected{% endif %}>Прихована</option></select></label>
+        </div>
+      {% endfor %}
+    {% else %}<p class="muted">License Manager не налаштовано.</p>{% endif %}
+  </section>
+</fieldset>

@@ -1,0 +1,110 @@
+{% set visibility_labels = {'visible': 'Видима', 'hidden': 'Прихована', 'missing': 'Відсутня', 'conflict': 'Конфлікт', 'unavailable': 'Недоступна', 'error': 'Помилка'} %}
+{% set execution_labels = {'succeeded': 'Успішно', 'failed': 'Помилка', 'stale': 'Стан змінився', 'blocked': 'Заблоковано', 'no_change': 'Без змін', 'skipped': 'Пропущено', 'unsupported': 'Не підтримується'} %}
+{% set inspection_labels = {'available': 'Доступно', 'visible': 'Видима', 'hidden': 'Прихована', 'missing': 'Відсутня', 'missing_key': 'Ключ відсутній', 'missing_value': 'Значення відсутнє', 'conflict': 'Конфлікт', 'unavailable': 'Недоступно', 'error': 'Помилка'} %}
+
+<header class="plugin-panel-heading registry-workspace-header">
+  <div>
+    <p class="eyebrow">WINDOWS REGISTRY</p>
+    <h3 id="windows-registry-heading">Керування реєстром</h3>
+    <p>Перевірка та керування налаштованими ресурсами реєстру.</p>
+  </div>
+  <div class="panel-badges">
+    <span class="state-badge">{{ registry_typed.presets | length if registry_typed else 0 }} presets</span>
+    <span class="state-badge">{{ registry_typed.value_targets | length if registry_typed else 0 }} значень</span>
+    <span class="state-badge">{{ registry_typed.branch_targets | length if registry_typed else 0 }} гілок</span>
+  </div>
+</header>
+
+{% if registry_configuration and registry_configuration.enabled %}
+  <div class="plugin-action-toolbar registry-primary-action">
+    <form method="post" action="{{ url_for('web.inspect_windows_registry', product_id=product.id, _anchor='windows-registry') }}">
+      <button class="button button-secondary" type="submit">Оновити поточний стан</button>
+    </form>
+    <span class="toolbar-note">Поточний стан налаштованих ресурсів перевіряється автоматично.</span>
+  </div>
+{% else %}
+  <p class="toolbar-note">Перевірка доступна після ввімкнення Windows Registry у налаштуваннях.</p>
+{% endif %}
+{% if registry_error %}<p class="alert alert-error" role="alert">{{ registry_error }}</p>{% endif %}
+
+<section class="registry-workspace-section registry-presets" aria-labelledby="registry-presets-heading">
+  <div class="registry-presets-header">
+    <div><p class="eyebrow">PRESETS</p><h4 id="registry-presets-heading">Presets</h4></div>
+    <details class="plugin-settings registry-preset-editor registry-preset-create" {% if registry_form and registry_editor_kind == 'edit_registry_preset' and not registry_editing_preset_id %}open{% endif %}>
+      <summary class="button button-secondary">+ Новий preset</summary>
+      <form class="plugin-form registry-mode-editor-form" method="post" action="{{ url_for('web.edit_registry_preset', product_id=product.id, _anchor='windows-registry') }}">
+        {% set preset = none %}{% include 'products/_registry_preset_fields.html' %}
+        <div class="registry-editor-actions"><a class="button button-secondary" href="{{ url_for('web.product_detail', product_id=product.id, open='windows-registry', _anchor='windows-registry') }}">Скасувати</a><button class="button" type="submit">Створити preset</button></div>
+      </form>
+    </details>
+  </div>
+  {% if registry_preset_cards %}
+    <div class="registry-card-list registry-preset-list">
+      {% for card in registry_preset_cards %}
+        {% set preset = card.preset %}
+        <article class="registry-card preset-mode-card">
+          <div class="result-heading"><h5>{{ card.name }}</h5>{% if card.comparison %}<span class="state-badge">{{ card.comparison.ready_count }} змін</span>{% else %}<span class="state-badge">{{ card.resources | length }} ресурсів</span>{% endif %}</div>
+          {% if card.comparison %}
+            {% if card.comparison.ready_count == 0 and card.comparison.blocked_count == 0 and card.comparison.error_count == 0 %}<p><strong>Поточний стан уже відповідає цьому preset.</strong></p>{% endif %}
+            <ul class="preset-mode-states">
+              {% for entry in card.comparison.entries %}
+                <li>
+                  <strong>{{ entry.display_name }}</strong>
+                  {% if entry.target_type.value == 'value' %}<span><code>{{ entry.current_state.registry_type or '—' }}</code>: <code>{{ entry.current_state.value if entry.current_state.value is not none else '—' }}</code> → <code>{{ entry.desired_state.registry_type.value }}</code>: <code>{{ entry.desired_state.value }}</code></span>
+                  {% else %}<span>{{ visibility_labels.get(entry.current_state.visibility, entry.current_state.visibility) }} → {{ visibility_labels.get(entry.desired_state.visibility.value, entry.desired_state.visibility.value) }}</span>{% endif %}
+                  <span class="diff-status diff-status-{{ entry.status.value }}">{{ {'ready': 'Готово', 'no_change': 'Без змін', 'blocked': 'Заблоковано', 'error': 'Помилка'}.get(entry.status.value, entry.status.value) }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          <details class="inline-details"><summary>Деталі preset</summary>
+            <ul class="preset-mode-states">{% for resource in card.resources %}<li><strong>{{ resource.display_name }}</strong><span><code>{{ resource.desired_state }}</code></span><span>Розташування в реєстрі: <code>{{ resource.location }}</code>{% if resource.value_name %} · <code>{{ resource.value_name }}</code>{% endif %}</span></li>{% endfor %}</ul>
+            <p><code>Technical ID: {{ card.id }}</code></p>
+          </details>
+          <div class="plugin-action-toolbar">
+            {% if card.comparison and card.comparison.ready_count %}<form method="post" action="{{ url_for('web.preview_windows_registry_preset', product_id=product.id, _anchor='windows-registry') }}"><input type="hidden" name="preset_id" value="{{ card.id }}"><button class="button" type="submit">Застосувати preset</button></form>{% endif %}
+            <details class="registry-edit registry-preset-editor" {% if registry_form and registry_editing_preset_id == card.id %}open{% endif %}><summary>Редагувати</summary><form class="plugin-form registry-mode-editor-form" method="post" action="{{ url_for('web.edit_registry_preset', product_id=product.id, _anchor='windows-registry') }}"><input type="hidden" name="original_id" value="{{ card.id }}">{% include 'products/_registry_preset_fields.html' %}<div class="registry-editor-actions"><a class="button button-secondary" href="{{ url_for('web.product_detail', product_id=product.id, open='windows-registry', _anchor='windows-registry') }}">Скасувати</a><button class="button" type="submit">Зберегти preset</button></div></form></details>
+            <form method="post" action="{{ url_for('web.edit_registry_preset', product_id=product.id, _anchor='windows-registry') }}"><input type="hidden" name="original_id" value="{{ card.id }}"><input type="hidden" name="action" value="delete"><button class="button button-secondary" type="submit">Видалити preset</button></form>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}<p class="result-placeholder muted">Presets ще не створені.</p>{% endif %}
+</section>
+
+{% if registry_preset_preview %}
+  <div class="plugin-result-slot registry-plan registry-full-width" id="registry-preset-preview">
+    <p class="eyebrow">ПОПЕРЕДНІЙ ПЕРЕГЛЯД PRESET</p><h4>{{ registry_preset_preview.display_name }}</h4>
+    <p class="alert alert-warning">Реєстр ще не змінено. Збережений preset також не змінюється.</p>
+    <div class="snapshot-diff-summary"><div class="diff-summary-card"><span>Готово</span><strong>{{ registry_executable_count }}</strong></div><div class="diff-summary-card diff-summary-changed"><span>Заблоковано</span><strong>{{ registry_preset_preview.blocked_count + registry_preset_preview.error_count }}</strong></div><div class="diff-summary-card"><span>Без змін</span><strong>{{ registry_preset_preview.no_change_count }}</strong></div></div>
+    <div class="registry-card-list">{% for entry in registry_preset_preview.entries %}<article class="registry-card"><h5>{{ entry.display_name }}</h5>{% if entry.target_type.value == 'value' %}<p><code>{{ entry.current_state.registry_type or '—' }}</code>: <code>{{ entry.current_state.value }}</code> → <code>{{ entry.desired_state.registry_type.value }}</code>: <code>{{ entry.desired_state.value }}</code></p>{% else %}<p>{{ visibility_labels.get(entry.current_state.visibility, entry.current_state.visibility) }} → {{ visibility_labels.get(entry.desired_state.visibility.value, entry.desired_state.visibility.value) }}</p>{% endif %}<span class="diff-status diff-status-{{ entry.status.value }}">{{ {'ready': 'Готово', 'no_change': 'Без змін', 'blocked': 'Заблоковано', 'error': 'Помилка'}.get(entry.status.value, entry.status.value) }}</span><details class="inline-details"><summary>Технічні деталі</summary><p>{{ entry.message }}</p></details></article>{% endfor %}</div>
+    {% if registry_execution_token %}<form class="plugin-form registry-confirmation" method="post" action="{{ url_for('web.execute_windows_registry_preset', product_id=product.id, preset_id=registry_preset_preview.identifier) }}"><input type="hidden" name="execution_token" value="{{ registry_execution_token }}"><p class="alert alert-warning">Буде виконано {{ registry_executable_count }} готових змін налаштованих ресурсів реєстру.</p><label class="checkbox-field"><input type="checkbox" name="confirm" value="yes" required><span>Я підтверджую зміни Windows Registry.</span></label><button class="button" type="submit">Підтвердити застосування</button></form>{% endif %}
+  </div>
+{% endif %}
+
+{% if registry_execution_result %}
+  <div class="plugin-result-slot registry-plan registry-full-width" id="registry-execution-result">
+    <p class="eyebrow">РЕЗУЛЬТАТ ЗАСТОСУВАННЯ PRESET</p><h4>{{ registry_execution_result.preset_name }}</h4>
+    {% for warning in registry_execution_result.warnings %}<p class="alert alert-warning">{{ warning }}</p>{% endfor %}
+    <div class="snapshot-diff-summary"><div class="diff-summary-card"><span>Успішно</span><strong>{{ registry_execution_result.succeeded_count }}</strong></div><div class="diff-summary-card diff-summary-changed"><span>Помилки</span><strong>{{ registry_execution_result.failed_count }}</strong></div><div class="diff-summary-card diff-summary-changed"><span>Стан змінився</span><strong>{{ registry_execution_result.stale_count }}</strong></div><div class="diff-summary-card diff-summary-changed"><span>Заблоковано</span><strong>{{ registry_execution_result.blocked_count }}</strong></div></div>
+    <div class="registry-card-list">{% for entry in registry_execution_result.entries %}<article class="registry-card"><h5>{{ entry.display_name }}</h5>{% if entry.target_type.value == 'value' %}<p><code>{{ entry.current_state.registry_type or '—' }}</code>: <code>{{ entry.current_state.value }}</code> → <code>{{ entry.desired_state.registry_type.value }}</code>: <code>{{ entry.desired_state.value }}</code></p>{% else %}<p>{{ visibility_labels.get(entry.current_state.visibility, entry.current_state.visibility) }} → {{ visibility_labels.get(entry.desired_state.visibility.value, entry.desired_state.visibility.value) }}</p>{% endif %}<span class="diff-status diff-status-{{ entry.status.value }}">{{ execution_labels.get(entry.status.value, entry.status.value) }}</span><details class="inline-details"><summary>Технічні деталі</summary><p>{{ entry.message }}</p>{% if entry.rollback_status.value != 'not_required' %}<p>Відкат: {{ execution_labels.get(entry.rollback_status.value, entry.rollback_status.value) }}</p>{% endif %}</details></article>{% endfor %}</div>
+  </div>
+{% endif %}
+
+<details class="registry-workspace-section" open>
+  <summary><span>Поточний стан</span><span class="state-badge">{{ 'Перевірено' if registry_result else 'Недоступно' }}</span></summary>
+  <div class="registry-section-body" data-plugin-result="windows-registry">
+    {% if registry_result %}{% for warning in registry_result.warnings %}<p class="alert alert-error">{{ warning }}</p>{% endfor %}<div class="registry-card-list">
+      {% for item in registry_result.values %}<article class="registry-card"><h5>{{ item.target.display_name or item.target.id }}</h5><p><span class="state-badge">{{ inspection_labels.get(item.status.value, item.status.value) }}</span> <code>{{ item.registry_type or '—' }}</code> = <code>{{ item.value if item.value is not none else '—' }}</code></p><p class="muted"><code>{{ item.target.hive.value }}\{{ item.target.key_path }} · {{ item.target.value_name }}</code></p></article>{% endfor %}
+      {% for item in registry_result.branches %}<article class="registry-card"><h5>{{ item.target.display_name or item.target.id }}</h5><p><span class="state-badge">{{ visibility_labels.get(item.status.value, item.status.value) }}</span></p><p class="muted"><code>{{ item.target.hive.value }}\{{ item.target.key_path }}</code></p></article>{% endfor %}
+    </div>{% else %}<p class="result-placeholder muted">Поточний стан недоступний.</p>{% endif %}
+  </div>
+</details>
+
+<details class="registry-workspace-section" {% if registry_form or configuration_error %}open{% endif %}>
+  <summary><span>Налаштування реєстру</span><span class="state-badge">{{ (registry_typed.value_targets | length + registry_typed.branch_targets | length) if registry_typed else 0 }} ресурсів</span></summary>
+  <div class="registry-section-body">
+    <section class="registry-editor" aria-labelledby="registry-values-heading"><h4 id="registry-values-heading">Значення реєстру</h4><div class="registry-card-list">{% for target in registry_typed.value_targets if registry_typed %}<article class="registry-card"><h5>{{ target.display_name or target.id }}</h5><p><span class="state-badge">{{ target.hive.value }}</span> <code>{{ target.key_path }}</code><br><code>{{ target.value_name }}</code></p><details class="registry-edit"><summary>Редагувати</summary><form class="plugin-form" method="post" action="{{ url_for('web.edit_registry_value_target', product_id=product.id, _anchor='windows-registry') }}"><input type="hidden" name="original_id" value="{{ target.id }}">{% include 'products/_registry_value_fields.html' %}<button class="button" type="submit">Зберегти зміни</button></form></details><form method="post" action="{{ url_for('web.edit_registry_value_target', product_id=product.id, _anchor='windows-registry') }}"><input type="hidden" name="original_id" value="{{ target.id }}"><input type="hidden" name="action" value="delete"><button class="button button-secondary" type="submit">Видалити з конфігурації</button></form></article>{% endfor %}</div><details class="plugin-settings"><summary>+ Додати значення реєстру</summary><form class="plugin-form" method="post" action="{{ url_for('web.edit_registry_value_target', product_id=product.id, _anchor='windows-registry') }}">{% set target = none %}{% include 'products/_registry_value_fields.html' %}<button class="button" type="submit">Додати значення</button></form></details></section>
+    <section class="registry-editor" aria-labelledby="registry-branches-heading"><h4 id="registry-branches-heading">Гілки реєстру</h4><div class="registry-card-list">{% for target in registry_typed.branch_targets if registry_typed %}<article class="registry-card"><h5>{{ target.display_name or target.id }}</h5><p><span class="state-badge">{{ target.hive.value }}</span> <code>{{ target.key_path }}</code></p><details class="inline-details"><summary>Технічні деталі</summary><p>Прихована гілка: <code>{{ target.hidden_name }}</code></p></details><details class="registry-edit"><summary>Редагувати</summary><form class="plugin-form" method="post" action="{{ url_for('web.edit_registry_branch_target', product_id=product.id, _anchor='windows-registry') }}"><input type="hidden" name="original_id" value="{{ target.id }}">{% include 'products/_registry_branch_fields.html' %}<button class="button" type="submit">Зберегти зміни</button></form></details><form method="post" action="{{ url_for('web.edit_registry_branch_target', product_id=product.id, _anchor='windows-registry') }}"><input type="hidden" name="original_id" value="{{ target.id }}"><input type="hidden" name="action" value="delete"><button class="button button-secondary" type="submit">Видалити з конфігурації</button></form></article>{% endfor %}</div><details class="plugin-settings"><summary>+ Додати гілку реєстру</summary><form class="plugin-form" method="post" action="{{ url_for('web.edit_registry_branch_target', product_id=product.id, _anchor='windows-registry') }}">{% set target = none %}{% include 'products/_registry_branch_fields.html' %}<button class="button" type="submit">Додати гілку</button></form></details></section>
+  </div>
+</details>

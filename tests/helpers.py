@@ -8,6 +8,7 @@ from flask import Flask
 from qa_deck import create_app
 from qa_deck.domain import PluginConfiguration, Product
 from qa_deck.storage import (
+    EnvironmentProfileRepository,
     OperationLogRepository,
     PluginConfigurationRepository,
     ProductRepository,
@@ -21,6 +22,8 @@ def make_app(tmp_path: Path) -> Flask:
             "PRODUCT_DATA_PATH": tmp_path / "products.json",
             "PLUGIN_CONFIGURATION_DATA_PATH": tmp_path / "configurations.json",
             "OPERATION_LOG_DATA_PATH": tmp_path / "operations.json",
+            "ENVIRONMENT_PROFILE_DATA_PATH": tmp_path / "profiles.json",
+            "SNAPSHOT_DATA_PATH": tmp_path / "snapshots.json",
             "PLUGIN_BACKUP_ROOT": tmp_path / "backups",
             "LOG_COLLECTION_MAX_FILES": 100,
             "LOG_COLLECTION_MAX_TOTAL_BYTES": 10_000,
@@ -74,4 +77,11 @@ def configurations(app: Flask) -> PluginConfigurationRepository:
 def operation_logs(app: Flask) -> OperationLogRepository:
     return cast(
         OperationLogRepository, app.extensions["operation_log_repository"]
+    )
+
+
+def environment_profiles(app: Flask) -> EnvironmentProfileRepository:
+    return cast(
+        EnvironmentProfileRepository,
+        app.extensions["environment_profile_repository"],
     )

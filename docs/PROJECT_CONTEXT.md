@@ -10,9 +10,22 @@ QA Deck не запускає автоматизовані тести. Це та
 
 ## Поточний стан
 
-Працює базове керування Products, локальне JSON-сховище та плагінна основа. Доступні три вбудовані плагіни: Executable Inspector, License Manager і Log Collector. License Manager перевіряє, резервує, приховує та відновлює налаштовані ліцензійні файли. Log Collector перевіряє джерела логів і формує тимчасовий ZIP-архів для завантаження.
+Працює базове керування Products, локальне JSON-сховище та плагінна основа.
+Доступні чотири вбудовані плагіни: Executable Inspector, License Manager,
+Log Collector і Windows Registry. License Manager перевіряє, резервує,
+приховує та відновлює налаштовані ліцензійні файли. Log Collector перевіряє
+джерела логів і формує тимчасовий ZIP-архів для завантаження. Windows Registry
+працює лише з явно налаштованими values і branches та підтримує presets,
+preview, stale-state validation, typed value writes і reversible branch rename.
 
-Проєкт містить 40 автоматичних тестів основного функціоналу.
+Snapshot Capture фіксує поточний стан доступних providers, Snapshot Diff
+порівнює збережені або поточні стани, а Snapshot Restore виконує незалежно
+підтверджені provider entries із повторною перевіркою Current. Product-scoped
+Environment Profiles посилаються на поточний Registry preset і налаштовані
+license identities, автоматично порівнюються з Current та можуть бути
+застосовані через server-side preview, one-time intent і PRG result.
+
+Проєкт містить 191 автоматичний тест основного функціоналу.
 
 ## Product у центрі системи
 
@@ -121,6 +134,10 @@ QA Deck не запускає автоматизовані тести. Це та
 - **Jira Integration** — передає snapshots і зібрані артефакти до задач Jira.
 
 Snapshot, diff та Jira Integration доповнюють основні сценарії. Вони не є єдиною метою платформи.
+
+Workflows, Jira Integration і запуск executable залишаються майбутньою
+роботою. Глобальна cross-plugin transaction, persistent execution jobs і
+фінальний UX polish також ще не реалізовані.
 
 ## Безпека
 

@@ -1,0 +1,91 @@
+"""Windows Registry built-in plugin."""
+
+from qa_deck.plugins.builtin.windows_registry.execution import (
+    RegistryExecutionEntryResult,
+    RegistryExecutionIntent,
+    RegistryExecutionResult,
+    RegistryExecutionStateStore,
+    RegistryExecutionStatus,
+    RegistryPresetExecutor,
+    RegistryRollbackStatus,
+    registry_authority_fingerprint,
+)
+from qa_deck.plugins.builtin.windows_registry.models import (
+    RegistryBranchInspection,
+    RegistryBranchStatus,
+    RegistryBranchTarget,
+    RegistryBranchVisibility,
+    RegistryDataType,
+    RegistryHive,
+    RegistryInspectionResult,
+    RegistryPreset,
+    RegistryPresetBranch,
+    RegistryPresetPreview,
+    RegistryPresetValue,
+    RegistryValueInspection,
+    RegistryValueStatus,
+    RegistryValueTarget,
+    WindowsRegistryConfiguration,
+)
+from qa_deck.plugins.builtin.windows_registry.planner import (
+    RegistryBranchState,
+    RegistryChangePlan,
+    RegistryPlanEntry,
+    RegistryPlanner,
+    RegistryPlanOperation,
+    RegistryPlanStatus,
+    RegistryTargetType,
+    RegistryValueState,
+)
+from qa_deck.plugins.builtin.windows_registry.plugin import (
+    WindowsRegistry,
+    create_windows_registry,
+)
+from qa_deck.plugins.builtin.windows_registry.reader import (
+    RegistryReader,
+    WindowsRegistryReader,
+)
+from qa_deck.plugins.builtin.windows_registry.writer import (
+    RegistryWriter,
+    WindowsRegistryWriter,
+)
+
+__all__ = [
+    "RegistryBranchInspection",
+    "RegistryBranchStatus",
+    "RegistryBranchState",
+    "RegistryBranchTarget",
+    "RegistryBranchVisibility",
+    "RegistryDataType",
+    "RegistryExecutionEntryResult",
+    "RegistryExecutionIntent",
+    "RegistryExecutionResult",
+    "RegistryExecutionStateStore",
+    "RegistryExecutionStatus",
+    "RegistryHive",
+    "RegistryInspectionResult",
+    "RegistryChangePlan",
+    "RegistryPlanEntry",
+    "RegistryPlanOperation",
+    "RegistryPlanStatus",
+    "RegistryPlanner",
+    "RegistryPreset",
+    "RegistryPresetBranch",
+    "RegistryPresetPreview",
+    "RegistryPresetValue",
+    "RegistryPresetExecutor",
+    "RegistryReader",
+    "RegistryRollbackStatus",
+    "RegistryValueInspection",
+    "RegistryValueStatus",
+    "RegistryTargetType",
+    "RegistryValueState",
+    "RegistryValueTarget",
+    "RegistryWriter",
+    "WindowsRegistry",
+    "WindowsRegistryConfiguration",
+    "WindowsRegistryReader",
+    "WindowsRegistryWriter",
+    "create_windows_registry",
+    "registry_authority_fingerprint",
+]

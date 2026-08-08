@@ -1,0 +1,8 @@
+<fieldset><legend>Значення реєстру</legend>
+  <label><span>Технічний ID</span><input name="id" value="{{ target.id if target else '' }}" maxlength="64" placeholder="debug-mode" required {% if target %}readonly{% endif %}></label>
+  <label><span>Назва для відображення</span><input name="display_name" value="{{ target.display_name or '' if target else '' }}" maxlength="100" placeholder="Debug mode"></label>
+  <label><span>Розділ реєстру</span><select name="hive"><option value="HKCU" {% if not target or target.hive.value == 'HKCU' %}selected{% endif %}>HKCU</option><option value="HKLM" {% if target and target.hive.value == 'HKLM' %}selected{% endif %}>HKLM</option></select></label>
+  <label><span>Шлях ключа</span><input name="key_path" value="{{ target.key_path if target else '' }}" placeholder="Software\Vendor\Product" required></label>
+  <label><span>Назва значення</span><input name="value_name" value="{{ target.value_name if target else '' }}" placeholder="DebugMode"></label>
+  <label class="checkbox-field"><input type="checkbox" name="enabled" {% if not target or target.enabled %}checked{% endif %}><span>Увімкнено</span></label>
+</fieldset>

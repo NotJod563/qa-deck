@@ -7,6 +7,7 @@ from logging import Logger
 from pathlib import Path
 
 from qa_deck.domain import PluginConfiguration, Product
+from qa_deck.domain.snapshot import SnapshotCaptureResult, SnapshotResource
 from qa_deck.plugins.api import Plugin, PluginAction, RiskLevel
 from qa_deck.plugins.builtin.log_collector.collection import (
     LogCollectionResult,
@@ -219,6 +220,64 @@ class LogCollector:
             return datetime.fromtimestamp(timestamp, tz=UTC)
         except (OSError, OverflowError, ValueError):
             return None
+
+
+    def capture_snapshot(
+        self,
+        product: Product,
+        configuration: PluginConfiguration | None,
+    ) -> SnapshotCaptureResult:
+        if configuration is None or not configuration.enabled:
+            return SnapshotCaptureResult(
+                warnings=(
+                    "Log Collector snapshot provider is disabled or not configured.",
+                ),
+            )
+
+        inspection = self.inspect(configuration)
+        if inspection.enabled and inspection.sources:
+            resources: list[SnapshotResource] = []
+            for source in inspection.sources:
+                resources.append(
+                    SnapshotResource(
+                        source=self.identifier,
+                        resource_type="log-source",
+                        identifier=source.configured_path,
+                        state={
+                            "exists": source.exists,
+                            "is_directory": source.is_directory,
+                            "file_count": source.file_count,
+                            "total_size": source.total_size,
+                            "latest_modified": source.latest_modified.isoformat()
+                            if source.latest_modified is not None
+                            else None,
+                            "truncated": source.truncated,
+                            "message": source.message,
+                        },
+                    )
+                )
+            return SnapshotCaptureResult(resources=tuple(resources))
+
+        warnings: tuple[str, ...] = ()
+        if not inspection.enabled:
+            warnings = ("Log Collector is disabled for this product.",)
+        elif inspection.enabled:
+            warnings = ("Log Collector inspection returned no sources.",)
+
+        return SnapshotCaptureResult(
+            resources=(
+                SnapshotResource(
+                    source=self.identifier,
+                    resource_type="log-collector",
+                    identifier="log-collector",
+                    state={
+                        "enabled": inspection.enabled,
+                        "message": inspection.message,
+                    },
+                ),
+            ),
+            warnings=warnings,
+        )
 
 
 def create_log_collector() -> Plugin:

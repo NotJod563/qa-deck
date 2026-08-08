@@ -150,11 +150,13 @@ class LicenseManagerService:
         product_id: str,
         configuration: PluginConfiguration | None,
         action_identifier: str,
+        *,
+        inspection: LicenseInspectionResult | None = None,
     ) -> ChangePlan:
         if action_identifier not in {HIDE_ACTION, RESTORE_ACTION}:
             raise ValueError("Unsupported License Manager action")
 
-        inspection = self.inspect(configuration)
+        inspection = inspection or self.inspect(configuration)
         changes: list[PlannedChange] = []
         skipped: list[SkippedChange] = []
         warnings: list[str] = []

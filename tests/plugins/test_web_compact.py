@@ -19,6 +19,7 @@ def test_product_page_has_plugins_anchors_details_and_result_slots(
         "Executable Inspector",
         "License Manager",
         "Log Collector",
+        "Windows Registry",
     ):
         assert plugin_name in page
     for anchor in (
@@ -26,12 +27,16 @@ def test_product_page_has_plugins_anchors_details_and_result_slots(
         "executable-inspector",
         "license-manager",
         "log-collector",
-        "operation-logs",
+        "windows-registry",
+            "operation-logs",
+            "environment-profiles",
     ):
         assert page.count(f'id="{anchor}"') == 1
     assert page.count('data-plugin-result="license-manager"') == 1
     assert page.count('data-plugin-result="log-collector"') == 1
-    assert page.count('<details class="plugin-settings"') == 2
+    assert page.count('<details class="plugin-settings') == 6
+    assert page.count('class="plugin-launcher-tile"') == 6
+    assert "ІНСТРУМЕНТИ СТАНУ" in page
 
 
 def test_plugin_configurations_are_saved_only_for_selected_product(

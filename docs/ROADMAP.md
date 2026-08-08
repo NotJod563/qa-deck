@@ -61,6 +61,19 @@
 - реалізувати початкове порівняння snapshots;
 - додати unit tests та integration tests.
 
+### Фактичний результат Week 3
+
+- реалізовано Snapshot Capture, Snapshot Diff, Snapshot Restore і керування
+  Product-scoped snapshots;
+- раніше історичного плану Week 4 реалізовано Windows Registry із values,
+  branches, presets, preview, stale protection і підтверджуваним execution;
+- раніше історичного плану Week 4 реалізовано Product-scoped Environment
+  Profiles із Registry/License comparison та best-effort coordinated execution;
+- збережено provider boundaries, one-time intents, PRG/F5 safety і redacted
+  aggregate Operation Logs;
+- після вузької раціоналізації suite збережено 191 автоматичний тест;
+- Workflows не реалізовані й залишаються майбутнім етапом історичного плану.
+
 ## Тиждень 4 — Windows Registry та Environment Profile
 
 Заплановано:

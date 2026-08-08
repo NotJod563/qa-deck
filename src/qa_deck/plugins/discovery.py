@@ -6,6 +6,7 @@ from qa_deck.plugins.builtin import (
     create_executable_inspector,
     create_license_manager,
     create_log_collector,
+    create_windows_registry,
 )
 from qa_deck.plugins.manager import PluginFactory, PluginManager
 
@@ -14,6 +15,7 @@ BUILTIN_PLUGIN_FACTORIES: tuple[PluginFactory, ...] = (
     create_executable_inspector,
     create_license_manager,
     create_log_collector,
+    create_windows_registry,
 )
 
 

@@ -1,0 +1,67 @@
+<fieldset class="preset-editor" data-preset-editor>
+  <legend>{{ 'Редагування preset' if preset else 'Новий preset' }}</legend>
+  <label>
+    <span>Назва</span>
+    <input name="name" value="{{ preset.name if preset else '' }}" maxlength="100" placeholder="QA Debug" data-preset-name required>
+  </label>
+  <details class="preset-technical-details">
+    <summary>Технічні деталі</summary>
+    {% if preset %}<p>Стабільний ID: <code>{{ preset.id }}</code></p>
+    {% else %}<p class="muted">Стабільний ID буде автоматично створено з назви.</p>{% endif %}
+  </details>
+
+  <div class="preset-target-list">
+    {% for value_target in registry_typed.value_targets %}
+      {% set desired = namespace(item=none) %}
+      {% if preset %}{% for item in preset.values if item.target_id == value_target.id %}{% set desired.item = item %}{% endfor %}{% endif %}
+      {% set current = registry_value_states.get(value_target.id) %}
+      <fieldset class="preset-target-card" data-preset-target data-target-kind="value" data-target-name="{{ value_target.display_name or value_target.id }}" data-current-state="{{ current.secondary if current and current.status == 'available' else '' }}">
+        <legend>{{ value_target.display_name or value_target.id }}</legend>
+        <div class="preset-target-identity">
+          <code>{{ value_target.hive.value }}\{{ value_target.key_path }}</code>
+          <span>Назва значення: <code>{{ value_target.value_name }}</code></span>
+        </div>
+        <div class="preset-current-state">
+          <strong>Поточний стан</strong>
+          {% if current and current.status == 'available' %}<span><code>{{ current.primary }}</code> = <code>{{ current.secondary }}</code></span>
+          {% else %}<span class="muted">Не перевірено</span>{% endif %}
+        </div>
+        <label class="preset-include-control">
+          <input type="checkbox" name="include_value__{{ value_target.id }}" data-include-target {% if desired.item %}checked{% endif %}>
+          <span>Включити в preset</span>
+        </label>
+        <div class="preset-desired-state" data-desired-controls>
+          <strong>Бажаний стан</strong>
+          <label><span>Тип</span><select name="value_type__{{ value_target.id }}" data-registry-type {% if not desired.item %}disabled{% endif %}>{% for type_name in ['REG_SZ','REG_EXPAND_SZ','REG_DWORD','REG_QWORD','REG_MULTI_SZ','REG_BINARY'] %}<option value="{{ type_name }}" {% if desired.item and desired.item.registry_type.value == type_name %}selected{% endif %}>{{ type_name }}</option>{% endfor %}</select></label>
+          <label><span>Значення</span><textarea name="value_data__{{ value_target.id }}" rows="2" data-registry-value {% if not desired.item %}disabled{% endif %}>{{ desired.item.value | join('\n') if desired.item and desired.item.registry_type.value == 'REG_MULTI_SZ' else (desired.item.value if desired.item else '') }}</textarea></label>
+          <p class="field-hint" data-type-help></p>
+          <p class="preset-transition">Очікувана зміна: <code>{{ current.secondary if current and current.status == 'available' else 'Не перевірено' }}</code> → <code data-desired-preview>{{ desired.item.value if desired.item else '—' }}</code></p>
+        </div>
+      </fieldset>
+    {% endfor %}
+
+    {% for branch_target in registry_typed.branch_targets %}
+      {% set desired = namespace(item=none) %}
+      {% if preset %}{% for item in preset.branches if item.target_id == branch_target.id %}{% set desired.item = item %}{% endfor %}{% endif %}
+      {% set current = registry_branch_states.get(branch_target.id) %}
+      <fieldset class="preset-target-card" data-preset-target data-target-kind="branch" data-target-name="{{ branch_target.display_name or branch_target.id }}" data-current-state="{{ current.primary if current and current.status in ['visible', 'hidden'] else '' }}">
+        <legend>{{ branch_target.display_name or branch_target.id }}</legend>
+        <div class="preset-target-identity"><code>{{ branch_target.hive.value }}\{{ branch_target.key_path }}</code></div>
+        <div class="preset-current-state"><strong>Поточний стан</strong>{% if current and current.status in ['visible', 'hidden'] %}<span><code>{{ {'visible': 'Видима', 'hidden': 'Прихована'}.get(current.primary, current.primary) }}</code></span>{% else %}<span class="muted">Не перевірено</span>{% endif %}</div>
+        <label class="preset-include-control"><input type="checkbox" name="include_branch__{{ branch_target.id }}" data-include-target {% if desired.item %}checked{% endif %}><span>Включити в preset</span></label>
+        <div class="preset-desired-state" data-desired-controls>
+          <strong>Бажаний стан</strong>
+          <label><span>Видимість</span><select name="branch_visibility__{{ branch_target.id }}" data-registry-value {% if not desired.item %}disabled{% endif %}><option value="visible" {% if not desired.item or desired.item.visibility.value == 'visible' %}selected{% endif %}>Видима</option><option value="hidden" {% if desired.item and desired.item.visibility.value == 'hidden' %}selected{% endif %}>Прихована</option></select></label>
+          <p class="preset-transition">Очікувана зміна: <code>{{ {'visible': 'Видима', 'hidden': 'Прихована'}.get(current.primary, current.primary) if current and current.status in ['visible', 'hidden'] else 'Не перевірено' }}</code> → <code data-desired-preview>{{ {'visible': 'Видима', 'hidden': 'Прихована'}.get(desired.item.visibility.value, desired.item.visibility.value) if desired.item else '—' }}</code></p>
+        </div>
+        <details class="preset-technical-details"><summary>Технічні деталі</summary><p>Прихована гілка: <code>{{ branch_target.hidden_name }}</code></p></details>
+      </fieldset>
+    {% endfor %}
+  </div>
+
+  <section class="preset-summary" aria-live="polite">
+    <h5 data-summary-name>{{ preset.name if preset else 'Новий preset' }}</h5>
+    <strong>Буде контролювати:</strong>
+    <ul data-preset-summary><li class="muted">У preset ще не включено ресурсів.</li></ul>
+  </section>
+</fieldset>

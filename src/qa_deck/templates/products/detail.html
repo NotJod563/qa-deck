@@ -37,14 +37,22 @@
     </div>
   </section>
 
-  <section id="executable-inspector" class="plugin-panel" aria-labelledby="executable-inspector-heading">
+  <section class="plugin-launcher" aria-labelledby="plugin-launcher-heading">
+    <div class="section-heading">
+      <p class="eyebrow">ІНСТРУМЕНТИ ПРОДУКТУ</p>
+      <h2 id="plugin-launcher-heading">Інструменти продукту</h2>
+      <p>Розгорніть потрібний інструмент для {{ product.name }}.</p>
+    </div>
+    <details id="executable-inspector" class="plugin-workspace" {% if inspection_result %}open{% endif %}>
+      <summary class="plugin-launcher-tile"><span><strong>Executable Inspector</strong><small>Метадані executable</small></span><span class="risk-badge risk-safe">БЕЗПЕЧНО</span></summary>
+  <section class="plugin-panel" aria-labelledby="executable-inspector-heading">
     <header class="plugin-panel-heading">
       <div>
         <p class="eyebrow">Вбудований плагін</p>
         <h2 id="executable-inspector-heading">Executable Inspector</h2>
         <p>Перевіряє наявність файла та читає лише базові метадані.</p>
       </div>
-      <div class="panel-badges"><span class="risk-badge risk-safe">SAFE</span><span class="state-badge state-ready">Доступно</span></div>
+      <div class="panel-badges"><span class="risk-badge risk-safe">БЕЗПЕЧНО</span><span class="state-badge state-ready">Доступно</span></div>
     </header>
     <div class="plugin-action-toolbar" aria-label="Дії Executable Inspector">
       <form method="post" action="{{ url_for('web.product_inspect_executable', product_id=product.id, _anchor='executable-inspector') }}">
@@ -68,13 +76,14 @@
             <div><dt>Ім’я файла</dt><dd>{{ inspection_result.file_name }}</dd></div>
             <div><dt>Розширення</dt><dd><code>{{ inspection_result.extension or 'Без розширення' }}</code></dd></div>
             <div><dt>Розмір</dt><dd>{{ inspection_result.size_bytes }} байт</dd></div>
-            <div><dt>Остання зміна</dt><dd>{{ inspection_result.modified_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</dd></div>
+            <div><dt>Остання зміна</dt><dd>{{ inspection_result.modified_at.strftime('%d.%m.%Y %H:%M UTC') }}</dd></div>
           {% endif %}
         </dl>
       </div>
     {% else %}<p class="result-placeholder muted">Перевірку ще не запускали.</p>{% endif %}
   </section>
 
+    </details>
   <section class="resource-section" aria-labelledby="resources-heading">
     <div class="section-heading">
       <p class="eyebrow">Конфігурація {{ product.name }}</p>
@@ -83,7 +92,9 @@
     </div>
     {% if configuration_error %}<p class="alert alert-error" role="alert">{{ configuration_error }}</p>{% endif %}
 
-    <article id="license-manager" class="plugin-panel" aria-labelledby="license-manager-heading">
+    <details id="license-manager" class="plugin-workspace" {% if license_error or license_form or change_plan or operation_result or backup_result %}open{% endif %}>
+      <summary class="plugin-launcher-tile"><span><strong>License Manager</strong><small>Ліцензійні ресурси</small></span><span class="risk-badge risk-caution">ОБЕРЕЖНО</span></summary>
+    <article class="plugin-panel" aria-labelledby="license-manager-heading">
       <header class="plugin-panel-heading">
         <div>
           <p class="eyebrow">Ресурси продукту</p>
@@ -91,7 +102,7 @@
           <p>Перевіряє, резервує, тимчасово приховує та відновлює ліцензійні файли.</p>
         </div>
         <div class="panel-badges">
-          <span class="risk-badge risk-caution">CAUTION</span>
+          <span class="risk-badge risk-caution">ОБЕРЕЖНО</span>
           {% if not license_plugin_available %}<span class="state-badge state-unavailable">Недоступно</span>
           {% elif not license_configuration %}<span class="state-badge">Не налаштовано</span>
           {% elif license_configuration.enabled %}<span class="state-badge state-enabled">Увімкнено</span>
@@ -151,7 +162,7 @@
             <div class="result-heading"><h4>Стан backup</h4><span class="result-status">{{ 'Доступний' if backup_result.has_backup else 'Не знайдено' }}</span></div>
             {% if backup_result.message %}<p role="status">{{ backup_result.message }}</p>{% endif %}
             <p>Операцій: {{ backup_result.operation_count }} · Файлів в останньому backup: {{ backup_result.file_count }} · Manifest: {{ 'доступний' if backup_result.manifest_available else 'недоступний' }}</p>
-            {% if backup_result.latest_timestamp %}<p>Останній backup: {{ backup_result.latest_timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }} · {{ backup_result.latest_action }}</p>{% endif %}
+            {% if backup_result.latest_timestamp %}<p>Останній backup: {{ backup_result.latest_timestamp.strftime('%d.%m.%Y %H:%M UTC') }} · {{ backup_result.latest_action }}</p>{% endif %}
           {% elif license_error %}<p class="alert alert-error" role="alert">{{ license_error }}</p>
           {% else %}<p class="result-placeholder muted">Оберіть дію, щоб побачити поточний результат.</p>{% endif %}
         </div>
@@ -168,10 +179,321 @@
       {% endif %}
     </article>
 
-    <article id="log-collector" class="plugin-panel" aria-labelledby="log-collector-heading">
+    </details>
+
+    <section class="state-tools" aria-labelledby="state-tools-heading">
+      <div class="section-heading"><p class="eyebrow">ІНСТРУМЕНТИ СТАНУ</p><h2 id="state-tools-heading">Інструменти стану</h2></div>
+    <details id="snapshots" class="state-workspace" {% if snapshot_error or snapshot_diff_view or restore_plan or restore_result %}open{% endif %}>
+      <summary class="plugin-launcher-tile"><span><strong>Snapshots</strong><small>{{ snapshots | length }} збережено<br>Збереження · Порівняння · Відновлення</small></span><span class="risk-badge risk-safe">БЕЗПЕЧНО</span></summary>
+    <article class="plugin-panel" aria-labelledby="snapshots-heading">
+      <header class="plugin-panel-heading">
+        <div>
+          <p class="eyebrow">SNAPSHOTS</p>
+          <h3 id="snapshots-heading">Snapshots</h3>
+          <p>Збереження, порівняння та відновлення стану продукту.</p>
+        </div>
+        <div class="panel-badges"><span class="risk-badge risk-safe">БЕЗПЕЧНО</span><span class="state-badge state-ready">Лише читання</span></div>
+      </header>
+      <div class="snapshot-create-block">
+        <h4>Створити snapshot</h4>
+        <form class="snapshot-create-form" method="post" action="{{ url_for('web.create_snapshot', product_id=product.id, _anchor='snapshots') }}">
+          <label><span>Назва snapshot</span><input name="label" value="{{ snapshot_form_label }}" maxlength="100" placeholder="Наприклад, Before license change"></label>
+          <button class="button" type="submit">Створити snapshot</button>
+        </form>
+      </div>
+      {% if snapshot_error %}<p class="alert alert-error" role="alert">{{ snapshot_error }}</p>{% endif %}
+      <p class="toolbar-note">Snapshot зберігає лише metadata стану, без файлів, ZIP або секретів.</p>
+      {% if snapshot_diff_view %}
+        <article id="snapshot-diff" class="plugin-panel plugin-result-slot" aria-labelledby="snapshot-diff-heading">
+          <header class="plugin-panel-heading">
+            <div>
+              <p class="eyebrow">Snapshot Diff</p>
+              <h3 id="snapshot-diff-heading">{{ snapshot_diff_view.base.name }} → {{ snapshot_diff_view.target.name }}</h3>
+              <div class="snapshot-reference-row">
+                <span>{{ snapshot_diff_view.base.created_at.strftime('%d.%m.%Y %H:%M UTC') }}</span>
+                <span aria-hidden="true">→</span>
+                <span>{{ snapshot_diff_view.target.created_at.strftime('%d.%m.%Y %H:%M UTC') }}</span>
+              </div>
+            </div>
+          </header>
+          <div class="snapshot-diff-summary" aria-label="Підсумок порівняння">
+            <div class="diff-summary-card diff-summary-changed"><span>Змінено</span><strong>{{ snapshot_diff_view.changed_count }}</strong></div>
+            <div class="diff-summary-card"><span>Додано</span><strong>{{ snapshot_diff_view.added_count }}</strong></div>
+            <div class="diff-summary-card"><span>Видалено</span><strong>{{ snapshot_diff_view.removed_count }}</strong></div>
+            <div class="diff-summary-card"><span>Без змін</span><strong>{{ snapshot_diff_view.unchanged_count }}</strong></div>
+          </div>
+          {% if snapshot_diff_view.warning_count %}
+            <details class="snapshot-warning-details">
+              <summary>Попередження ({{ snapshot_diff_view.warning_count }})</summary>
+              <div class="snapshot-warning-content">
+                {% for warning_group in snapshot_diff_view.warnings %}
+                  <section>
+                    <h4>{{ warning_group.origin }}</h4>
+                    <ul class="compact-list">
+                      {% for message in warning_group.messages %}<li>{{ message }}</li>{% endfor %}
+                    </ul>
+                  </section>
+                {% endfor %}
+              </div>
+            </details>
+          {% endif %}
+          <div class="snapshot-diff-groups">
+            {% for group in snapshot_diff_view.groups %}
+              <details class="snapshot-diff-group diff-group-{{ group.status }}" {% if group.open_by_default %}open{% endif %}>
+                <summary><span>{{ group.display_name }}</span><span>{{ group.count }}</span></summary>
+                <div class="snapshot-diff-group-content">
+                  {% for source_group in group.sources %}
+                    <section class="snapshot-source-group" aria-labelledby="source-{{ group.status }}-{{ loop.index }}">
+                      <h4 id="source-{{ group.status }}-{{ loop.index }}">{{ source_group.display_name }}</h4>
+                      <div class="snapshot-resource-list">
+                        {% for resource in source_group.resources %}
+                          <article class="snapshot-resource-card">
+                            <header class="snapshot-resource-heading">
+                              <div>
+                                <h5>{{ resource.identifier_display_name }}</h5>
+                                <span class="muted">{{ resource.resource_type }}</span>
+                              </div>
+                              <span class="diff-status diff-status-{{ resource.status }}">{{ group.display_name }}</span>
+                            </header>
+                            {% if resource.status == 'changed' %}
+                              {% for change in resource.field_changes if change.path == 'schema_version' %}
+                                <div class="schema-version-change"><strong>Schema version</strong><code>{{ change.base_value.text }}</code><span aria-hidden="true">→</span><code>{{ change.target_value.text }}</code></div>
+                              {% endfor %}
+                              <div class="field-diff-list">
+                                <div class="field-diff-header" aria-hidden="true"><span>Поле</span><span>Було</span><span>Стало</span></div>
+                                {% for change in resource.field_changes if change.path != 'schema_version' %}
+                                  <div class="field-diff-row">
+                                    <code class="field-path">{{ {'modified_at': 'Час зміни', 'size_bytes': 'Розмір', 'value': 'Значення', 'registry_type': 'Тип Registry'}.get(change.path, change.path) }}</code>
+                                    <div><span class="field-mobile-label">Було</span><code>{{ change.base_value.text }}</code>{% if change.base_value.truncated %}<span class="muted"> Значення скорочено.</span>{% endif %}</div>
+                                    <div><span class="field-mobile-label">Стало</span><code>{{ change.target_value.text }}</code>{% if change.target_value.truncated %}<span class="muted"> Значення скорочено.</span>{% endif %}</div>
+                                  </div>
+                                {% endfor %}
+                              </div>
+                            {% elif resource.primary_state %}
+                              <pre class="snapshot-state-compact"><code>{{ resource.primary_state.text }}</code></pre>
+                              {% if resource.primary_state.truncated %}<p class="muted">Значення скорочено.</p>{% endif %}
+                            {% endif %}
+                            <details class="snapshot-technical-details">
+                              <summary>Технічні деталі</summary>
+                              <dl class="snapshot-identity-list">
+                                <div><dt>Source</dt><dd><code>{{ resource.source }}</code></dd></div>
+                                <div><dt>Resource type</dt><dd><code>{{ resource.resource_type }}</code></dd></div>
+                                <div><dt>Identifier</dt><dd><code>{{ resource.identifier }}</code></dd></div>
+                              </dl>
+                              <div class="snapshot-raw-grid">
+                                <section><h6>Base resource</h6><pre><code>{{ resource.raw_base.text }}</code></pre>{% if resource.raw_base.truncated %}<p class="muted">Значення скорочено.</p>{% endif %}</section>
+                                <section><h6>Target resource</h6><pre><code>{{ resource.raw_target.text }}</code></pre>{% if resource.raw_target.truncated %}<p class="muted">Значення скорочено.</p>{% endif %}</section>
+                              </div>
+                            </details>
+                          </article>
+                        {% endfor %}
+                      </div>
+                    </section>
+                  {% endfor %}
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        </article>
+      {% endif %}
+      {% if restore_plan %}
+        <article id="snapshot-restore-plan" class="plugin-panel plugin-result-slot" aria-labelledby="snapshot-restore-plan-heading">
+          <header class="plugin-panel-heading">
+            <div>
+              <p class="eyebrow">ПОПЕРЕДНІЙ ПЕРЕГЛЯД ВІДНОВЛЕННЯ</p>
+              <h3 id="snapshot-restore-plan-heading">Поточне середовище → {{ restore_plan_snapshot.label or 'Snapshot без назви' }}</h3>
+              <p>Перевірте зміни перед відновленням. Нічого ще не змінено.</p>
+            </div>
+            <div class="panel-badges"><span class="risk-badge risk-safe">ЛИШЕ ЧИТАННЯ</span></div>
+          </header>
+          <div class="snapshot-diff-summary" aria-label="Підсумок плану відновлення">
+            {% if restore_plan.ready_count %}<div class="diff-summary-card"><span>Буде відновлено</span><strong>{{ restore_plan.ready_count }}</strong></div>{% endif %}
+            {% if restore_plan.no_change_count %}<div class="diff-summary-card"><span>Без змін</span><strong>{{ restore_plan.no_change_count }}</strong></div>{% endif %}
+            {% if restore_plan.blocked_count + restore_plan.error_count %}<div class="diff-summary-card diff-summary-changed"><span>Заблоковано</span><strong>{{ restore_plan.blocked_count + restore_plan.error_count }}</strong></div>{% endif %}
+            {% if restore_plan.unsupported_count %}<div class="diff-summary-card"><span>Не підтримується</span><strong>{{ restore_plan.unsupported_count }}</strong></div>{% endif %}
+          </div>
+          {% if restore_executable_count == 0 %}
+            <p class="alert alert-warning">Немає змін, доступних для автоматичного відновлення. Причини наведено для кожного ресурсу нижче.</p>
+          {% endif %}
+          {% if restore_plan.warnings %}
+            <ul class="compact-list">
+              {% for warning in restore_plan.warnings %}<li>{{ warning }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+          <div class="snapshot-diff-groups">
+            {% for source, entries in restore_plan.entries | groupby('source') %}
+              <section class="snapshot-source-group">
+                <h4>{{ restore_source_names.get(source, source) }}</h4>
+                <div class="snapshot-resource-list">
+                  {% for entry in entries %}
+                    <article class="snapshot-resource-card">
+                      <header class="snapshot-resource-heading">
+                        <div><h5>{{ entry.identifier }}</h5><span class="muted">{{ entry.resource_type }}</span></div>
+                        <span class="diff-status diff-status-{{ entry.status.value }}">{{ {'ready': 'Буде відновлено', 'no_change': 'Без змін', 'unsupported': 'Не підтримується', 'blocked': 'Заблоковано', 'error': 'Помилка provider'}.get(entry.status.value, entry.status.value) }}</span>
+                      </header>
+                      {% if entry.source != 'windows-registry' %}<p><code>{{ entry.current_resource.state.get('status', 'present') if entry.current_resource else 'absent' }}</code> → <code>{{ entry.desired_resource.state.get('status', 'present') if entry.desired_resource else 'absent' }}</code></p>{% endif %}
+                      <p>{{ entry.action_description }}</p>
+                      {% if entry.blocking_reason %}<p class="alert alert-error">{{ entry.blocking_reason }}</p>{% endif %}
+                      {% if entry.risk_level %}<span class="risk-badge risk-{{ entry.risk_level.value }}">{{ entry.risk_level.value | upper }}</span>{% endif %}
+                      {% if entry.warnings %}<ul class="compact-list">{% for warning in entry.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>{% endif %}
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
+          </div>
+          {% if restore_confirmation_token %}
+            <form method="post" action="{{ url_for('web.execute_snapshot_restore', product_id=product.id, snapshot_id=restore_plan.snapshot_id) }}" class="plugin-form">
+              <input type="hidden" name="confirmation_token" value="{{ restore_confirmation_token }}">
+              <p><strong>Буде виконано {{ restore_executable_count }} змін.</strong></p>
+              <p class="alert alert-warning">Обережні операції створять резервну копію і можуть змінити файли. Перед виконанням поточний стан буде перевірено повторно.</p>
+              <label class="checkbox-field"><input type="checkbox" name="confirm" value="yes" required><span>Я підтверджую відновлення runtime state зі snapshot.</span></label>
+              <div class="plugin-action-toolbar">
+                <a class="button button-secondary" href="{{ url_for('web.product_detail', product_id=product.id) }}">Скасувати</a>
+                <button class="button" type="submit">Відновити snapshot</button>
+              </div>
+            </form>
+          {% endif %}
+        </article>
+      {% endif %}
+      {% if restore_result %}
+        <article id="snapshot-restore-result" class="plugin-panel plugin-result-slot" aria-labelledby="snapshot-restore-result-heading">
+          <header class="plugin-panel-heading">
+            <div>
+              <p class="eyebrow">РЕЗУЛЬТАТ ВІДНОВЛЕННЯ</p>
+              <h3 id="snapshot-restore-result-heading">{{ restore_result_snapshot.label or 'Snapshot без назви' }}</h3>
+              <p>Результат виконання збережено для безпечного оновлення сторінки без повторного restore.</p>
+            </div>
+          </header>
+          <div class="snapshot-diff-summary" aria-label="Підсумок виконання відновлення">
+            <div class="diff-summary-card"><span>Успішно</span><strong>{{ restore_result.succeeded_count }}</strong></div>
+            <div class="diff-summary-card diff-summary-changed"><span>Помилки</span><strong>{{ restore_result.failed_count }}</strong></div>
+            <div class="diff-summary-card"><span>Пропущено</span><strong>{{ restore_result.skipped_count }}</strong></div>
+            <div class="diff-summary-card"><span>Не підтримується</span><strong>{{ restore_result.unsupported_count }}</strong></div>
+            <div class="diff-summary-card diff-summary-changed"><span>Стан змінився</span><strong>{{ restore_result.stale_count }}</strong></div>
+          </div>
+          {% if restore_result.warnings %}
+            <ul class="compact-list">{% for warning in restore_result.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+          {% endif %}
+          <div class="snapshot-diff-groups">
+            {% for source, entries in restore_result.entries | groupby('source') %}
+              <section class="snapshot-source-group">
+                <h4>{{ restore_source_names.get(source, source) }}</h4>
+                <div class="snapshot-resource-list">
+                  {% for entry in entries %}
+                    <article class="snapshot-resource-card">
+                      <header class="snapshot-resource-heading">
+                        <div><h5>{{ entry.identifier }}</h5><span class="muted">{{ entry.resource_type }}</span></div>
+                        <span class="diff-status diff-status-{{ entry.status.value }}">{{ {'success': 'Успішно', 'failed': 'Помилка', 'skipped': 'Пропущено', 'stale': 'Стан змінився', 'unsupported': 'Не підтримується'}.get(entry.status.value, entry.status.value) }}</span>
+                      </header>
+                      <p>{{ entry.requested_transition }}</p>
+                      <p>{{ entry.message }}</p>
+                      {% if entry.backup_created %}<p class="muted">Backup створено existing License Manager mechanism.</p>{% endif %}
+                      {% if entry.rollback_status %}<p class="muted">Rollback: {{ entry.rollback_status.value }}</p>{% endif %}
+                      {% if entry.warnings %}<ul class="compact-list">{% for warning in entry.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>{% endif %}
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
+          </div>
+        </article>
+      {% endif %}
+      {% if snapshots %}
+        <div class="plugin-result-slot" role="status">
+          <div class="result-heading"><h4>Останні snapshots</h4><span class="result-status">{{ snapshots | length }}</span></div>
+          <ul class="snapshot-list">
+            {% for snapshot in snapshots %}
+              <li class="snapshot-item">
+                <div class="snapshot-summary">
+                  <strong>{{ snapshot.label or 'Без назви' }}</strong>
+                <span>{{ snapshot.created_at.strftime('%d.%m.%Y %H:%M UTC') }}</span>
+                </div>
+                <p class="muted">Ресурсів: {{ snapshot.resources | length }} · Попереджень: {{ snapshot.metadata.warnings | length if snapshot.metadata.warnings is iterable else 0 }}</p>
+                <details class="snapshot-list-details"><summary>Технічні деталі</summary><p><code>ID: {{ snapshot.id[:8] }}</code></p></details>
+                <div class="plugin-action-toolbar">
+                  <a class="button button-secondary" href="{{ url_for('web.product_detail', product_id=product.id, snapshot=snapshot.id, _anchor='snapshot-diff') }}">Порівняти з поточним станом</a>
+                  <a class="button button-secondary" href="{{ url_for('web.prepare_snapshot_restore', product_id=product.id, snapshot_id=snapshot.id, _anchor='snapshot-restore-plan') }}">Відновити зі snapshot</a>
+                  {% if snapshots | length > 1 %}
+                    <form method="get" action="{{ url_for('web.compare_snapshots', product_id=product.id, _anchor='snapshot-diff') }}" class="inline-form">
+                      <input type="hidden" name="base" value="{{ snapshot.id }}">
+                      <label class="sr-only" for="target-{{ snapshot.id }}">Порівняти з іншим snapshot</label>
+                      <select id="target-{{ snapshot.id }}" name="target">
+                        {% for other in snapshots if other.id != snapshot.id %}
+                          <option value="{{ other.id }}">{{ other.label or 'Без назви' }} — {{ other.created_at.strftime('%d.%m.%Y %H:%M UTC') }}</option>
+                        {% endfor %}
+                      </select>
+                      <button class="button button-secondary" type="submit">Порівняти зі snapshot</button>
+                    </form>
+                  {% endif %}
+                </div>
+                <details class="snapshot-delete-confirmation">
+                  <summary class="button button-danger">Видалити</summary>
+                  <p><strong>Видалити snapshot «{{ snapshot.label or 'Без назви' }}»?</strong></p>
+                  <p class="alert alert-warning">Цю дію не можна скасувати.</p>
+                  <form method="post" action="{{ url_for('web.delete_snapshot', product_id=product.id, snapshot_id=snapshot.id, _anchor='snapshots') }}">
+                    <input type="hidden" name="confirm" value="yes">
+                    <button class="button button-danger" type="submit">Підтвердити видалення</button>
+                  </form>
+                </details>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% else %}
+        <p class="result-placeholder muted">Ще не створено жодного snapshot для цього продукту.</p>
+      {% endif %}
+    </article>
+    </details>
+
+    <details id="environment-profiles" class="state-workspace" {% if environment_profile_error or environment_profile_form or environment_profile_execution_plan or environment_profile_execution_result %}open{% endif %}>
+      <summary class="plugin-launcher-tile"><span><strong>Профілі середовища</strong><small>{{ environment_profiles | length }} збережено<br>Бажаний стан Registry і ліцензій</small></span><span class="risk-badge risk-caution">ЗАСТОСУВАННЯ СТАНУ</span></summary>
+      <article class="plugin-panel" aria-labelledby="environment-profiles-heading">
+        <header class="plugin-panel-heading"><div><p class="eyebrow">ПРОФІЛІ СЕРЕДОВИЩА</p><h3 id="environment-profiles-heading">Профілі середовища</h3><p>Порівнюйте поточний стан або застосовуйте profile після окремого preview.</p></div></header>
+        {% if environment_profile_error %}<p class="alert alert-error">{{ environment_profile_error }}</p>{% endif %}
+        {% if environment_profile_execution_plan %}
+          <section id="environment-profile-confirmation" class="environment-profile-execution" aria-labelledby="environment-profile-plan-heading">
+            <p class="eyebrow">ПІДТВЕРДЖЕННЯ ЗАСТОСУВАННЯ</p><h4 id="environment-profile-plan-heading">{{ environment_profile_execution_plan.profile_name }}</h4>
+            <div class="environment-profile-sections"><div><strong>Буде змінено</strong><span>{{ uk_changes(environment_profile_execution_plan.ready_count) }}</span></div><div><strong>Без змін</strong><span>{{ environment_profile_execution_plan.no_change_count }}</span></div><div><strong>Заблоковано</strong><span>{{ environment_profile_execution_plan.blocked_count + environment_profile_execution_plan.error_count }}</span></div></div>
+            {% for section in environment_profile_execution_plan.sections %}<div class="environment-profile-details"><h5>{{ section.display_name }}</h5>{% for entry in section.entries if entry.status.value != 'no_change' %}<div class="environment-profile-entry"><strong>{{ entry.display_name }}</strong><span>{{ entry.current_state }} → {{ entry.desired_state }}</span><span class="diff-status diff-status-{{ entry.status.value }}">{{ {'change': 'Буде змінено', 'blocked': 'Заблоковано', 'error': 'Помилка'}.get(entry.status.value, entry.status.value) }}</span></div>{% endfor %}{% set unchanged = section.entries | selectattr('status.value', 'equalto', 'no_change') | list %}{% if unchanged %}<details class="inline-details"><summary>Без змін ({{ unchanged | length }})</summary>{% for entry in unchanged %}<div class="environment-profile-entry"><strong>{{ entry.display_name }}</strong><span>{{ entry.current_state }}</span></div>{% endfor %}</details>{% endif %}</div>{% endfor %}
+            <form method="post" action="{{ url_for('web.execute_environment_profile', product_id=product.id, profile_id=environment_profile_execution_plan.profile_id) }}" class="plugin-form"><input type="hidden" name="confirmation_token" value="{{ environment_profile_execution_token }}"><label class="checkbox-field"><input type="checkbox" name="confirm" value="yes" required><span>Я підтверджую застосування підготовленого profile.</span></label><div class="plugin-action-toolbar"><a class="button button-secondary" href="{{ url_for('web.product_detail', product_id=product.id, _anchor='environment-profiles') }}">Скасувати</a><button class="button" type="submit">Підтвердити застосування</button></div></form>
+          </section>
+        {% endif %}
+        {% if environment_profile_execution_result %}
+          <section id="environment-profile-result" class="environment-profile-execution" aria-labelledby="environment-profile-result-heading"><p class="eyebrow">РЕЗУЛЬТАТ ЗАСТОСУВАННЯ PROFILE</p><h4 id="environment-profile-result-heading">{{ environment_profile_execution_result.profile_name }}</h4><div class="environment-profile-sections"><div><strong>Успішно</strong><span>{{ environment_profile_execution_result.succeeded_count }}</span></div><div><strong>Помилки</strong><span>{{ environment_profile_execution_result.failed_count }}</span></div><div><strong>Заблоковано</strong><span>{{ environment_profile_execution_result.blocked_count }}</span></div><div><strong>Без змін</strong><span>{{ environment_profile_execution_result.unchanged_count }}</span></div></div>{% if environment_profile_execution_result.warnings %}<ul class="compact-list">{% for warning in environment_profile_execution_result.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>{% endif %}{% for provider_id, display_name, entries in environment_profile_execution_result.sections %}<div class="environment-profile-details"><h5>{{ display_name }}</h5>{% for entry in entries %}<div class="environment-profile-entry"><strong>{{ entry.display_name }}</strong><span>{{ entry.current_state }} → {{ entry.desired_state }}</span><span class="diff-status diff-status-{{ entry.status.value }}">{{ {'success': 'Успішно', 'failed': 'Помилка', 'blocked': 'Заблоковано', 'stale': 'План застарів', 'no_change': 'Без змін'}.get(entry.status.value, entry.status.value) }}</span><p>{{ entry.message }}</p></div>{% endfor %}</div>{% endfor %}</section>
+        {% endif %}
+        <details class="plugin-settings environment-profile-create" {% if environment_profile_form and not environment_profile_editing_id %}open{% endif %}>
+          <summary class="button button-secondary">+ Новий profile</summary>
+          <form class="plugin-form" method="post" action="{{ url_for('web.create_environment_profile', product_id=product.id, _anchor='environment-profiles') }}">{% set profile = none %}{% set profile_form = environment_profile_form if not environment_profile_editing_id else {} %}{% include 'products/_environment_profile_fields.html' %}<div class="environment-profile-actions"><button class="button" type="submit">Зберегти profile</button></div></form>
+        </details>
+        {% if environment_profile_comparisons %}
+          <div class="environment-profile-list">
+            {% for comparison in environment_profile_comparisons %}
+              {% set profile = comparison.profile %}
+              <article class="environment-profile-card">
+                <div class="result-heading"><h4>{{ profile.name }}</h4><div class="panel-badges"><span class="state-badge">{{ uk_changes(comparison.change_count) }}</span><span class="state-badge">{{ comparison.no_change_count }} без змін</span>{% if comparison.blocked_count + comparison.error_count %}<span class="state-badge state-unavailable">{{ comparison.blocked_count + comparison.error_count }} заблоковано</span>{% endif %}</div></div>
+                <div class="environment-profile-sections">{% for section in comparison.sections %}{% set section_change_count = section.entries | selectattr('status.value', 'equalto', 'change') | list | length %}<div><strong>{{ section.display_name }}</strong>{% if section.reference_name %}<span>{{ section.reference_name }}</span>{% endif %}<span>{{ uk_changes(section_change_count) }}</span></div>{% endfor %}</div>
+                <details class="inline-details"><summary>Деталі</summary>{% for section in comparison.sections %}<section class="environment-profile-details"><h5>{{ section.display_name }}</h5>{% for entry in section.entries %}<div class="environment-profile-entry"><strong>{{ entry.display_name }}</strong><span>{{ entry.current_state }} → {{ entry.desired_state }}</span><span class="diff-status diff-status-{{ entry.status.value }}">{{ {'change': 'Зміна', 'no_change': 'Без змін', 'blocked': 'Заблоковано', 'error': 'Помилка'}.get(entry.status.value, entry.status.value) }}</span>{% if entry.status.value in ['blocked', 'error'] %}<p>{{ entry.message }}</p>{% endif %}</div>{% endfor %}</section>{% endfor %}</details>
+                <div class="plugin-action-toolbar">
+                  <form method="post" action="{{ url_for('web.prepare_environment_profile_execution', product_id=product.id, profile_id=profile.id, _anchor='environment-profile-confirmation') }}" class="inline-form"><button class="button" type="submit">Застосувати profile</button></form>
+                  <details class="plugin-settings" {% if environment_profile_editing_id == profile.id %}open{% endif %}><summary class="button button-secondary">Редагувати</summary><form class="plugin-form" method="post" action="{{ url_for('web.update_environment_profile', product_id=product.id, profile_id=profile.id, _anchor='environment-profiles') }}">{% set profile_form = environment_profile_form if environment_profile_editing_id == profile.id else {} %}{% include 'products/_environment_profile_fields.html' %}<div class="environment-profile-actions"><button class="button" type="submit">Зберегти profile</button></div></form></details>
+                  <details class="snapshot-delete-confirmation"><summary class="button button-danger">Видалити</summary><p><strong>Видалити profile «{{ profile.name }}»?</strong></p><p class="alert alert-warning">Runtime state, presets і snapshots не зміняться.</p><form method="post" action="{{ url_for('web.delete_environment_profile', product_id=product.id, profile_id=profile.id, _anchor='environment-profiles') }}"><input type="hidden" name="confirm" value="yes"><button class="button button-danger" type="submit">Підтвердити видалення</button></form></details>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}<p class="result-placeholder muted">Ще не створено жодного profile.</p>{% endif %}
+      </article>
+    </details>
+
+    </section>
+
+    <details id="log-collector" class="plugin-workspace" {% if log_error or log_form or log_result or log_collection_result %}open{% endif %}>
+      <summary class="plugin-launcher-tile"><span><strong>Log Collector</strong><small>Налаштовані джерела логів</small></span><span class="risk-badge risk-safe">БЕЗПЕЧНО</span></summary>
+    <article class="plugin-panel" aria-labelledby="log-collector-heading">
       <header class="plugin-panel-heading">
         <div><p class="eyebrow">Логи продукту</p><h3 id="log-collector-heading">Log Collector</h3><p>Перевіряє джерела логів продукту та збирає їх у тимчасовий ZIP-архів.</p></div>
-        <div class="panel-badges"><span class="risk-badge risk-safe">SAFE</span>
+        <div class="panel-badges"><span class="risk-badge risk-safe">БЕЗПЕЧНО</span>
           {% if not log_plugin_available %}<span class="state-badge state-unavailable">Недоступно</span>
           {% elif not log_configuration %}<span class="state-badge">Не налаштовано</span>
           {% elif log_configuration.enabled %}<span class="state-badge state-enabled">Увімкнено</span>
@@ -203,7 +525,7 @@
           {% elif log_result %}
             <div class="result-heading"><h4>Результат перевірки</h4><span class="result-status">{{ log_result.sources | length }} джерел</span></div>
             {% if log_result.message %}<p role="status">{{ log_result.message }}</p>{% endif %}
-            {% if log_result.sources %}<div class="table-scroll"><table class="result-table"><thead><tr><th>Шлях</th><th>Існує / каталог</th><th>Файли</th><th>Розмір</th><th>Остання зміна</th><th>Ліміт</th></tr></thead><tbody>{% for source in log_result.sources %}<tr><td><code>{{ source.configured_path }}</code>{% if source.message %}<br><span class="muted">{{ source.message }}</span>{% endif %}</td><td>{{ 'так' if source.exists else ('ні' if source.exists is not none else 'невідомо') }} / {{ 'так' if source.is_directory else ('ні' if source.is_directory is not none else 'невідомо') }}</td><td>{{ source.file_count }}</td><td>{{ source.total_size }} байт</td><td>{{ source.latest_modified.strftime('%Y-%m-%d %H:%M:%S UTC') if source.latest_modified else '—' }}</td><td>{{ 'так' if source.truncated else 'ні' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+            {% if log_result.sources %}<div class="table-scroll"><table class="result-table"><thead><tr><th>Шлях</th><th>Існує / каталог</th><th>Файли</th><th>Розмір</th><th>Остання зміна</th><th>Ліміт</th></tr></thead><tbody>{% for source in log_result.sources %}<tr><td><code>{{ source.configured_path }}</code>{% if source.message %}<br><span class="muted">{{ source.message }}</span>{% endif %}</td><td>{{ 'так' if source.exists else ('ні' if source.exists is not none else 'невідомо') }} / {{ 'так' if source.is_directory else ('ні' if source.is_directory is not none else 'невідомо') }}</td><td>{{ source.file_count }}</td><td>{{ source.total_size }} байт</td><td>{{ source.latest_modified.strftime('%d.%m.%Y %H:%M UTC') if source.latest_modified else '—' }}</td><td>{{ 'так' if source.truncated else 'ні' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
           {% elif log_error %}<p class="alert alert-error" role="alert">{{ log_error }}</p>
           {% else %}<p class="result-placeholder muted">Перевірку джерел логів ще не запускали.</p>{% endif %}
         </div>
@@ -219,13 +541,30 @@
       {% endif %}
     </article>
 
+    </details>
+
+    <details id="windows-registry" class="plugin-workspace" {% if registry_workspace_open %}open{% endif %}>
+      <summary class="plugin-launcher-tile">
+        <span><strong>Windows Registry</strong><small>Presets · Поточний стан · Налаштування</small></span>
+        <span class="risk-badge risk-caution">ЗМІНИ РЕЄСТРУ</span>
+      </summary>
+      <article class="plugin-panel" aria-labelledby="windows-registry-heading">
+        {% if not registry_plugin_available %}<p class="alert alert-error" role="status">{{ registry_plugin_error }}</p>{% else %}
+          {% include 'products/_registry_workspace.html' %}
+        {% endif %}
+      </article>
+    </details>
+
     <details id="operation-logs" class="operation-logs-panel">
       <summary>Історія операцій QA Deck — останні {{ operation_logs | length }}</summary>
       <p class="muted">Тут зберігаються результати дій плагінів: приховування, відновлення, збір логів і помилки.</p>
       {% if operation_log_error %}<p class="alert alert-error" role="alert">{{ operation_log_error }}</p>{% endif %}
       {% if operation_logs %}
-        <div class="table-scroll"><table class="result-table"><thead><tr><th>Час</th><th>Дія</th><th>Статус</th><th>Підсумок</th></tr></thead><tbody>{% for log in operation_logs %}<tr><td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}</td><td>{{ log.action_identifier }}</td><td>{{ log.status.value }}</td><td>{{ log.summary }}</td></tr>{% endfor %}</tbody></table></div>
+        <div class="table-scroll"><table class="result-table"><thead><tr><th>Час</th><th>Дія</th><th>Статус</th><th>Підсумок</th></tr></thead><tbody>{% for log in operation_logs %}<tr><td>{{ log.timestamp.strftime('%d.%m.%Y %H:%M UTC') }}</td><td>{{ log.action_identifier }}</td><td>{{ log.status.value }}</td><td>{{ log.summary }}</td></tr>{% endfor %}</tbody></table></div>
       {% elif not operation_log_error %}<p class="muted">Журнал операцій поки порожній.</p>{% endif %}
     </details>
   </section>
+  </section>
 {% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='registry_preset_editor.js') }}" defer></script>{% endblock %}

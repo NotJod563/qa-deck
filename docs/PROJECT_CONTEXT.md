@@ -43,7 +43,7 @@ Product Setup є optional capability плагіна, тому відсутніс
 Environment Profiles. Append-only Operation Logs зберігаються для аудиту.
 Executable, Registry, license files, backups і source logs не змінюються.
 
-Проєкт містить 212 автоматичних тестів основного функціоналу.
+Проєкт містить 217 автоматичних тестів основного функціоналу.
 
 ## Product у центрі системи
 

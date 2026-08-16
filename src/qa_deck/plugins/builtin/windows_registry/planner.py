@@ -228,6 +228,32 @@ class RegistryPlanner:
                 "Не вдалося прочитати поточний стан Registry value.",
                 fingerprint,
             )
+        if inspection.status is RegistryValueStatus.MISSING_VALUE:
+            return self._entry(
+                target,
+                current,
+                desired,
+                RegistryPlanStatus.BLOCKED,
+                RegistryPlanOperation.NONE,
+                (
+                    "Налаштований Registry value не існує. "
+                    "Створення нового value не підтримується."
+                ),
+                fingerprint,
+            )
+        if inspection.status is RegistryValueStatus.MISSING_KEY:
+            return self._entry(
+                target,
+                current,
+                desired,
+                RegistryPlanStatus.BLOCKED,
+                RegistryPlanOperation.NONE,
+                (
+                    "Налаштований Registry key не існує. "
+                    "Створення нового key або value не підтримується."
+                ),
+                fingerprint,
+            )
         if inspection.status is not RegistryValueStatus.AVAILABLE:
             return self._entry(
                 target,

@@ -1,7 +1,9 @@
-<fieldset><legend>Гілка реєстру</legend>
+<fieldset><legend>{{ 'Редагувати ресурс Registry branch' if target else 'Додати ресурс Registry branch' }}</legend>
+  <p class="field-hint">Тут задається гілка реєстру, якою QA Deck може керувати для цього Product. Збереження цієї форми не змінює Windows Registry.</p>
   <label><span>Технічний ID</span><input name="id" value="{{ target.id if target else '' }}" maxlength="64" placeholder="feature-branch" required {% if target %}readonly{% endif %}></label>
   <label><span>Назва для відображення</span><input name="display_name" value="{{ target.display_name or '' if target else '' }}" maxlength="100" placeholder="Feature branch"></label>
   <label><span>Розділ реєстру</span><select name="hive"><option value="HKCU" {% if not target or target.hive.value == 'HKCU' %}selected{% endif %}>HKCU</option><option value="HKLM" {% if target and target.hive.value == 'HKLM' %}selected{% endif %}>HKLM</option></select></label>
-  <label><span>Шлях ключа</span><input name="key_path" value="{{ target.key_path if target else '' }}" placeholder="Software\Vendor\Product\FeatureBranch" required></label>
+  <label><span>Шлях ключа</span><input name="key_path" value="{{ target.key_path if target else '' }}" placeholder="Software\QADeckManualTest\FeatureBranch" required><small class="field-hint">Наприклад: Software\QADeckManualTest\FeatureBranch</small></label>
+  <p class="field-hint">Бажана видимість гілки задається окремо в preset.</p>
   <label class="checkbox-field"><input type="checkbox" name="enabled" {% if not target or target.enabled %}checked{% endif %}><span>Увімкнено</span></label>
 </fieldset>

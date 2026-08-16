@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
+from flask import Flask
 
 from qa_deck.domain import Product, Snapshot
 from qa_deck.domain.snapshot import SnapshotResource
+from qa_deck.plugins import PluginManager
 from qa_deck.plugins.builtin.windows_registry import (
     RegistryBranchInspection,
     RegistryBranchStatus,
@@ -63,6 +66,25 @@ class FakeRegistryReader:
         )
 
 
+class DwordRegistryReader(FakeRegistryReader):
+    def __init__(
+        self,
+        value: int | None,
+        status: RegistryValueStatus = RegistryValueStatus.AVAILABLE,
+    ) -> None:
+        self.value = value
+        self.status = status
+
+    def inspect_value(self, target: RegistryValueTarget) -> RegistryValueInspection:
+        return RegistryValueInspection(
+            target,
+            self.status is RegistryValueStatus.AVAILABLE,
+            "REG_DWORD" if self.status is RegistryValueStatus.AVAILABLE else None,
+            self.value,
+            self.status,
+            self.status.value,
+        )
+
 def configuration(plugin: WindowsRegistry, *, presets: list[object] | None = None):
     return plugin.create_configuration(
         product_id="sample",
@@ -71,6 +93,16 @@ def configuration(plugin: WindowsRegistry, *, presets: list[object] | None = Non
         branch_targets_json=json.dumps([BRANCH_TARGET]),
         presets_json=json.dumps(presets or []),
     )
+
+
+def install_registry_plugin(
+    app: Flask,
+    plugin: WindowsRegistry,
+    presets: list[object],
+) -> None:
+    configurations(app).upsert(configuration(plugin, presets=presets))
+    manager = cast(PluginManager, app.extensions["plugin_manager"])
+    manager._plugins[WindowsRegistry.identifier] = plugin  # noqa: SLF001
 
 
 def test_configuration_has_typed_targets_and_deterministic_hidden_sibling() -> None:
@@ -274,6 +306,92 @@ def test_registry_routes_save_inspect_and_preview_without_ready_apply(
         rule.rule.endswith("/presets/<preset_id>/apply")
         for rule in app.url_map.iter_rules()
     )
+
+
+def test_ready_dword_preset_exposes_preview_and_confirmation_path(
+    tmp_path: Path,
+) -> None:
+    app = make_app(tmp_path)
+    plugin = WindowsRegistry(DwordRegistryReader(7))
+    preset = {
+        "id": "debug",
+        "name": "Debug",
+        "values": [
+            {"target_id": "theme", "registry_type": "REG_DWORD", "value": 10}
+        ],
+    }
+    install_registry_plugin(app, plugin, [preset])
+    client = app.test_client()
+
+    page = client.get("/products/sample").get_data(as_text=True)
+    preview = client.post(
+        "/products/sample/plugins/windows-registry/presets/preview",
+        data={"preset_id": "debug"},
+    ).get_data(as_text=True)
+
+    assert "1 змін" in page
+    assert "Застосувати preset" in page
+    assert "REG_DWORD</code>: <code>7" in page
+    assert "REG_DWORD</code>: <code>10" in page
+    assert 'name="execution_token"' in preview
+    assert "Підтвердити застосування" in preview
+
+
+def test_all_no_change_preset_has_no_executable_action(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    plugin = WindowsRegistry(DwordRegistryReader(10))
+    preset = {
+        "id": "debug",
+        "name": "Debug",
+        "values": [
+            {"target_id": "theme", "registry_type": "REG_DWORD", "value": 10}
+        ],
+    }
+    install_registry_plugin(app, plugin, [preset])
+
+    page = app.test_client().get("/products/sample").get_data(as_text=True)
+
+    assert "Поточний стан уже відповідає цьому preset." in page
+    assert "Застосувати preset" not in page
+
+
+def test_missing_value_preset_explains_blocked_execution(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    plugin = WindowsRegistry(
+        DwordRegistryReader(None, RegistryValueStatus.MISSING_VALUE)
+    )
+    preset = {
+        "id": "debug",
+        "name": "Debug",
+        "values": [
+            {"target_id": "theme", "registry_type": "REG_DWORD", "value": 10}
+        ],
+    }
+    install_registry_plugin(app, plugin, [preset])
+
+    page = app.test_client().get("/products/sample").get_data(as_text=True)
+
+    assert "Preset не має змін, які можна виконати." in page
+    assert "Налаштований Registry value не існує." in page
+    assert "Створення нового value не підтримується." in page
+    assert "Застосувати preset" not in page
+
+
+def test_registry_target_forms_explain_configuration_only_boundaries(
+    tmp_path: Path,
+) -> None:
+    page = make_app(tmp_path).test_client().get("/products/sample").get_data(
+        as_text=True
+    )
+
+    assert "+ Додати ресурс Registry" in page
+    assert "Збереження цієї форми не змінює Windows Registry." in page
+    assert 'placeholder="Software\\QADeckManualTest"' in page
+    assert 'placeholder="TempValue"' in page
+    assert "Це не значення параметра." in page
+    assert "Бажані тип і значення задаються окремо в preset." in page
+    assert "+ Додати ресурс Registry branch" in page
+    assert "Бажана видимість гілки задається окремо в preset." in page
 
 
 def test_value_target_form_creates_edits_and_removes_configuration(
@@ -624,7 +742,8 @@ def test_registry_capability_and_primary_ui_are_localized(tmp_path: Path) -> Non
     assert "ЗМІНИ РЕЄСТРУ" in page
     assert "Presets · Поточний стан · Налаштування" in page
     assert "Керування реєстром" in page
-    assert "Значення реєстру" in page and "Гілки реєстру" in page
+    assert "Ресурси Registry value" in page
+    assert "Ресурси Registry branch" in page
     assert "REG_BINARY" in page and "HKCU" in page
 
 

@@ -131,6 +131,21 @@ def test_dword_preset_previews_255_to_2_with_fingerprint() -> None:
     assert len(entry.expected_fingerprint) == 64
 
 
+def test_existing_dword_7_to_10_produces_executable_change() -> None:
+    plugin = WindowsRegistry(FakeReader(value_type="REG_DWORD", value=7))
+    typed = plugin.typed_configuration(configuration(plugin))
+    assert typed is not None
+
+    entry = plugin._planner.plan_value(  # noqa: SLF001
+        typed.value_targets[0], value_desired("REG_DWORD", 10)
+    )
+
+    assert entry.status is RegistryPlanStatus.READY
+    assert entry.operation is RegistryPlanOperation.SET_VALUE
+    assert entry.current_state.value == 7
+    assert entry.desired_state.value == 10
+
+
 @pytest.mark.parametrize(
     ("current_type", "current_value", "desired_type", "desired_value"),
     [

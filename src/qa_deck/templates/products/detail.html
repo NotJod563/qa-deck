@@ -4,13 +4,17 @@
 
 {% block content %}
   <section id="product-overview" class="product-overview" aria-labelledby="product-overview-heading">
+    {% if deletion_error %}<p class="alert alert-error" role="alert">{{ deletion_error }}</p>{% endif %}
     <div class="page-heading product-heading">
       <div>
         <p class="eyebrow">Продукт</p>
         <h1 id="product-overview-heading">{{ product.name }}</h1>
         <p class="page-lead">{{ product.description or 'Опис ще не додано.' }}</p>
       </div>
-      <a class="button button-secondary" href="{{ url_for('web.product_list') }}">До списку</a>
+      <div class="plugin-action-toolbar">
+        <a class="button" href="{{ url_for('web.export_product_setup', product_id=product.id) }}">Експорт налаштувань</a>
+        <a class="button button-secondary" href="{{ url_for('web.product_list') }}">До списку</a>
+      </div>
     </div>
 
     <div class="detail-card" aria-labelledby="details-heading">
@@ -35,6 +39,19 @@
         </div>
       </dl>
     </div>
+    <div class="product-danger-zone">
+      <button class="button button-danger" type="button" data-dialog-open="product-delete-dialog">Видалити Product</button>
+    </div>
+    <dialog class="setup-dialog setup-confirm-dialog" id="product-delete-dialog" aria-labelledby="product-delete-title">
+      <form method="post" action="{{ url_for('web.delete_product', product_id=product.id) }}">
+        <div class="setup-dialog-heading"><div><p class="eyebrow">Видалення Product</p><h2 id="product-delete-title">Видалити «{{ product.name }}»?</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Закрити">×</button></div>
+        <p>Буде видалено Product, конфігурації плагінів, snapshots і профілі середовища.</p>
+        <p class="alert alert-warning">Файли програми, Registry, ліцензійні файли, backups і логи на комп’ютері не змінюються.</p>
+        <p class="muted">Історія виконаних операцій зберігається для аудиту.</p>
+        <input type="hidden" name="confirm" value="yes">
+        <div class="form-actions"><button class="button button-secondary" type="button" data-dialog-close>Скасувати</button><button class="button button-danger" type="submit" autofocus>Видалити</button></div>
+      </form>
+    </dialog>
   </section>
 
   <section class="plugin-launcher" aria-labelledby="plugin-launcher-heading">
@@ -137,7 +154,7 @@
             {% if operation_result.rollback_status %}<p><strong>Rollback:</strong> {{ operation_result.rollback_status.value }}</p>{% endif %}
             {% for warning in operation_result.warnings %}<p class="alert alert-error" role="alert">{{ warning }}</p>{% endfor %}
           {% elif change_plan %}
-            <div class="result-heading"><h4>Change Plan: {{ change_plan.action_identifier }}</h4><span class="risk-badge risk-{{ change_plan.risk_level.value }}">{{ change_plan.risk_level.value | upper }}</span></div>
+            <div class="result-heading"><h4>План змін: {{ change_plan.action_identifier }}</h4><span class="risk-badge risk-{{ change_plan.risk_level.value }}">{{ change_plan.risk_level.value | upper }}</span></div>
             <p>Заплановано: {{ change_plan.changes | length }} · Пропущено: {{ change_plan.skipped | length }}</p>
             {% if change_plan.changes %}<ul class="compact-list">{% for change in change_plan.changes %}<li><code>{{ change.source_name }}</code> → <code>{{ change.target_name }}</code></li>{% endfor %}</ul>{% endif %}
             {% if change_plan.skipped %}<details class="inline-details"><summary>Пропущені елементи — {{ change_plan.skipped | length }}</summary><ul class="compact-list">{% for item in change_plan.skipped %}<li><code>{{ item.filename }}</code> — {{ item.reason }}</li>{% endfor %}</ul></details>{% endif %}
@@ -302,7 +319,7 @@
             <div>
               <p class="eyebrow">ПОПЕРЕДНІЙ ПЕРЕГЛЯД ВІДНОВЛЕННЯ</p>
               <h3 id="snapshot-restore-plan-heading">Поточне середовище → {{ restore_plan_snapshot.label or 'Snapshot без назви' }}</h3>
-              <p>Перевірте зміни перед відновленням. Нічого ще не змінено.</p>
+              <p>Перевірте зміни перед відновленням.</p>
             </div>
             <div class="panel-badges"><span class="risk-badge risk-safe">ЛИШЕ ЧИТАННЯ</span></div>
           </header>
@@ -362,7 +379,7 @@
             <div>
               <p class="eyebrow">РЕЗУЛЬТАТ ВІДНОВЛЕННЯ</p>
               <h3 id="snapshot-restore-result-heading">{{ restore_result_snapshot.label or 'Snapshot без назви' }}</h3>
-              <p>Результат виконання збережено для безпечного оновлення сторінки без повторного restore.</p>
+              <p>Сторінку можна оновлювати без повторного відновлення.</p>
             </div>
           </header>
           <div class="snapshot-diff-summary" aria-label="Підсумок виконання відновлення">
@@ -449,7 +466,7 @@
     <details id="environment-profiles" class="state-workspace" {% if environment_profile_error or environment_profile_form or environment_profile_execution_plan or environment_profile_execution_result %}open{% endif %}>
       <summary class="plugin-launcher-tile"><span><strong>Профілі середовища</strong><small>{{ environment_profiles | length }} збережено<br>Бажаний стан Registry і ліцензій</small></span><span class="risk-badge risk-caution">ЗАСТОСУВАННЯ СТАНУ</span></summary>
       <article class="plugin-panel" aria-labelledby="environment-profiles-heading">
-        <header class="plugin-panel-heading"><div><p class="eyebrow">ПРОФІЛІ СЕРЕДОВИЩА</p><h3 id="environment-profiles-heading">Профілі середовища</h3><p>Порівнюйте поточний стан або застосовуйте profile після окремого preview.</p></div></header>
+        <header class="plugin-panel-heading"><div><p class="eyebrow">ПРОФІЛІ СЕРЕДОВИЩА</p><h3 id="environment-profiles-heading">Профілі середовища</h3><p>Порівнюйте поточний стан або перевіряйте зміни перед застосуванням profile.</p></div></header>
         {% if environment_profile_error %}<p class="alert alert-error">{{ environment_profile_error }}</p>{% endif %}
         {% if environment_profile_execution_plan %}
           <section id="environment-profile-confirmation" class="environment-profile-execution" aria-labelledby="environment-profile-plan-heading">
@@ -567,4 +584,4 @@
   </section>
 {% endblock %}
 
-{% block scripts %}<script src="{{ url_for('static', filename='registry_preset_editor.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='registry_preset_editor.js') }}" defer></script><script src="{{ url_for('static', filename='dialogs.js') }}"></script>{% endblock %}

@@ -261,13 +261,13 @@ def test_registry_routes_save_inspect_and_preview_without_ready_apply(
     preview_html = previewed.get_data(as_text=True)
     assert "Dark mode" in preview_html
     assert (
-        "Реєстр ще не змінено. Збережений preset також не змінюється."
+        "Перевірте заплановані зміни. Збережений preset не змінюється."
         in preview_html
     )
     assert 'class="plugin-result-slot registry-plan registry-full-width"' in (
         preview_html
     )
-    assert "ПОПЕРЕДНІЙ ПЕРЕГЛЯД PRESET" in preview_html
+    assert "ПОПЕРЕДНІЙ ПЕРЕГЛЯД ЗМІН" in preview_html
     assert "Застосувати" not in preview_html
     assert configurations(app).get("sample", "windows-registry") is not None
     assert any(

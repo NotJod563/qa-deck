@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Імпорт налаштувань | QA Deck{% endblock %}
+{% block content %}
+  <section class="page-heading page-heading-compact"><div><p class="eyebrow">Product Setup</p><h1>Імпорт налаштувань</h1><p class="page-lead">Перевірте один Product Setup Package або Product Setup Bundle перед локальною адаптацією.</p></div></section>
+  {% if error %}<p class="alert alert-error" role="alert">{{ error }}</p>{% endif %}
+  <form class="form-card" method="post" action="{{ url_for('web.product_setup_import_configure') }}" enctype="multipart/form-data">
+    <div class="field"><label for="setup_file">JSON-файл Product Setup Package або Bundle</label><input id="setup_file" name="setup_file" type="file" accept="application/json,.json" required><p class="field-hint">Тип файлу визначається автоматично. Після завантаження можна перевірити й адаптувати значення.</p></div>
+    <div class="form-actions"><a class="button button-secondary" href="{{ url_for('web.product_list') }}">Скасувати</a><button class="button" type="submit">Переглянути вміст</button></div>
+  </form>
+{% endblock %}

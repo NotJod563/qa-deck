@@ -9,8 +9,15 @@
       <h1>Продукти</h1>
       <p class="page-lead">Тестові продукти та їхні локальні налаштування.</p>
     </div>
-    <a class="button" href="{{ url_for('web.product_new') }}">Додати продукт</a>
+    <div class="plugin-action-toolbar">
+      <a class="button" href="{{ url_for('web.product_new') }}">Додати продукт</a>
+      {% if products %}<button class="button button-secondary" type="button" data-dialog-open="setup-export-dialog">Експорт налаштувань</button>{% endif %}
+      <a class="button button-secondary" href="{{ url_for('web.product_setup_import') }}">Імпорт налаштувань</a>
+    </div>
   </section>
+
+  {% if export_error %}<p class="alert alert-error" role="alert">{{ export_error }}</p>{% endif %}
+  {% if deletion_success %}<p class="alert" role="status">Product і пов’язані дані QA Deck видалено.</p>{% endif %}
 
   {% if products %}
     <div class="product-grid">
@@ -43,4 +50,30 @@
       <a class="button" href="{{ url_for('web.product_new') }}">Створити перший продукт</a>
     </section>
   {% endif %}
+
+  {% if products %}
+    <dialog class="setup-dialog" id="setup-export-dialog" aria-labelledby="setup-export-title">
+      <form method="post" action="{{ url_for('web.export_product_setup_bundle') }}" data-selection-scope>
+        <div class="setup-dialog-heading">
+          <div><p class="eyebrow">Product Setup Bundle</p><h2 id="setup-export-title">Експорт налаштувань</h2></div>
+          <button class="dialog-close" type="button" data-dialog-close aria-label="Закрити">×</button>
+        </div>
+        <p class="muted">Оберіть Product, конфігурації яких потрібно включити в один JSON-файл.</p>
+        <div class="selection-toolbar">
+          <button class="button button-secondary button-small" type="button" data-select-all>Вибрати всі</button>
+          <button class="button button-secondary button-small" type="button" data-clear-selection>Очистити вибір</button>
+          <span class="selection-count" aria-live="polite">Вибрано: <strong data-selected-count>0</strong> із {{ products|length }}</span>
+        </div>
+        <div class="setup-selection-list">
+          {% for product in products %}
+            <label class="checkbox-field setup-selection-item"><input type="checkbox" name="product_ids" value="{{ product.id }}" data-selectable-item {% if loop.first %}autofocus{% endif %}><span><strong>{{ product.name }}</strong><small>{{ product.executable_path or 'Executable не вказано' }}</small></span></label>
+          {% endfor %}
+        </div>
+        <p class="selection-empty muted" data-selection-empty hidden>Виберіть принаймні один Product для експорту.</p>
+        <div class="form-actions"><button class="button button-secondary" type="button" data-dialog-close>Скасувати</button><button class="button" type="submit" data-selection-submit disabled>Експортувати вибрані</button></div>
+      </form>
+    </dialog>
+  {% endif %}
 {% endblock %}
+
+{% block scripts %}{% if products %}<script src="{{ url_for('static', filename='product_setup_selection.js') }}"></script><script src="{{ url_for('static', filename='dialogs.js') }}"></script>{% endif %}{% endblock %}

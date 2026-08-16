@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Результат імпорту | QA Deck{% endblock %}
+{% macro product_status(status) %}{% if status == 'CREATED' %}Створено{% elif status == 'FAILED' %}Не створено{% elif status == 'BLOCKED' %}Заблоковано{% elif status == 'SKIPPED' %}Пропущено{% else %}Невідомий стан{% endif %}{% endmacro %}
+{% macro plugin_status(status) %}{% if status == 'CONFIGURED' %}Налаштовано{% elif status == 'FAILED' %}Помилка{% elif status == 'BLOCKED' %}Заблоковано{% elif status == 'UNSUPPORTED' %}Не підтримується{% elif status == 'OMITTED' %}Не включено{% elif status == 'INVALID' %}Некоректно{% elif status == 'SKIPPED' %}Пропущено{% elif status == 'ROLLBACK_ATTEMPTED' %}Виконано спробу очищення{% else %}Невідомий стан{% endif %}{% endmacro %}
+{% block content %}
+  <section class="page-heading"><div><p class="eyebrow">Результат імпорту</p><h1>Результат Product Setup</h1><p class="page-lead">Повторне відкриття цієї сторінки не запускає імпорт знову.</p></div><a class="button" href="{{ url_for('web.product_list') }}">До списку Products</a></section>
+  <div class="setup-preview-list">
+    {% for item in result.products %}
+      <article class="setup-preview-card setup-result-card">
+        <header class="setup-preview-heading"><div><h2>{{ item.product_name }}</h2><p class="muted">Результат створення Product</p></div><span class="state-badge {{ 'state-ready' if item.status == 'CREATED' else 'state-unavailable' }}">{{ product_status(item.status) }}</span></header>
+        {% if item.message %}<p class="alert {{ 'alert-error' if item.status in ['FAILED', 'BLOCKED'] else '' }}">{{ item.message }}</p>{% endif %}
+        {% set notable_plugins = item.plugins|rejectattr('status', 'equalto', 'CONFIGURED')|list %}
+        {% if notable_plugins %}<h3>Конфігурації плагінів</h3><ul class="compact-list setup-result-plugins">{% for plugin in notable_plugins %}<li><strong>{{ plugin.display_name }}:</strong> {{ plugin_status(plugin.status) }}{% if plugin.message %}. {{ plugin.message }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+        {% if item.status == 'CREATED' %}<a class="button button-small" href="{{ url_for('web.product_detail', product_id=item.product_id) }}">Відкрити Product</a>{% endif %}
+      </article>
+    {% else %}<p class="alert alert-error">Результати імпорту недоступні.</p>{% endfor %}
+  </div>
+{% endblock %}

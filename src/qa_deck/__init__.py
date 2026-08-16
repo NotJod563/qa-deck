@@ -10,6 +10,7 @@ from qa_deck.environment_profiles import EnvironmentProfileExecutionStateStore
 from qa_deck.plugins import PluginManager
 from qa_deck.plugins.builtin.windows_registry import RegistryExecutionStateStore
 from qa_deck.plugins.discovery import discover_builtin_plugins
+from qa_deck.product_setup import ProductSetupImportStateStore
 from qa_deck.snapshot import SnapshotRestoreStateStore
 from qa_deck.storage import (
     EnvironmentProfileRepository,
@@ -36,6 +37,7 @@ def create_app(test_config: Mapping[str, object] | None = None) -> Flask:
         PLUGIN_BACKUP_ROOT=Path(app.instance_path) / "backups",
         LOG_COLLECTION_MAX_FILES=5_000,
         LOG_COLLECTION_MAX_TOTAL_BYTES=500 * 1024 * 1024,
+        PRODUCT_SETUP_MAX_BYTES=1024 * 1024,
     )
 
     if test_config is not None:
@@ -70,6 +72,7 @@ def create_app(test_config: Mapping[str, object] | None = None) -> Flask:
     app.extensions["environment_profile_execution_state"] = (
         EnvironmentProfileExecutionStateStore()
     )
+    app.extensions["product_setup_import_state"] = ProductSetupImportStateStore()
 
     plugin_manager = PluginManager()
     discover_builtin_plugins(plugin_manager)

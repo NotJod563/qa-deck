@@ -13,7 +13,9 @@ from qa_deck.domain import (
     OperationLog,
     OperationStatus,
     PluginConfiguration,
+    PluginSetupSection,
     Product,
+    ProductSetupProduct,
     RollbackStatus,
 )
 from qa_deck.domain.snapshot import SnapshotCaptureResult, SnapshotResource
@@ -68,6 +70,7 @@ from qa_deck.plugins.builtin.windows_registry.writer import (
     RegistryWriter,
     WindowsRegistryWriter,
 )
+from qa_deck.product_setup import SetupPluginImportPreparation, SetupPluginPreview
 from qa_deck.storage import OperationLogRepository
 
 
@@ -144,6 +147,113 @@ class WindowsRegistry:
         if configuration is None:
             return None
         return WindowsRegistryConfiguration.from_plugin_configuration(configuration)
+
+    def export_product_setup(
+        self,
+        product: ProductSetupProduct,
+        configuration: PluginConfiguration,
+    ) -> PluginSetupSection:
+        del product
+        typed = self.typed_configuration(configuration)
+        if typed is None:  # pragma: no cover
+            raise ValueError("Windows Registry configuration is missing")
+        return PluginSetupSection(
+            self.identifier,
+            1,
+            {
+                "enabled": configuration.enabled,
+                "value_targets": [item.to_dict() for item in typed.value_targets],
+                "branch_targets": [item.to_dict() for item in typed.branch_targets],
+                "presets_omitted": len(typed.presets),
+            },
+        )
+
+    def preview_product_setup(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> SetupPluginPreview:
+        del product
+        if section.schema_version != 1 or set(section.data) != {
+            "enabled",
+            "value_targets",
+            "branch_targets",
+            "presets_omitted",
+        }:
+            raise ValueError("Unsupported Windows Registry setup section")
+        enabled = section.data["enabled"]
+        values = section.data["value_targets"]
+        branches = section.data["branch_targets"]
+        presets_omitted = section.data["presets_omitted"]
+        if (
+            type(enabled) is not bool
+            or not isinstance(values, list)
+            or not isinstance(branches, list)
+            or type(presets_omitted) is not int
+            or presets_omitted < 0
+        ):
+            raise ValueError("Invalid Windows Registry setup data")
+        typed = WindowsRegistryConfiguration.create(
+            enabled=enabled,
+            value_targets=values,
+            branch_targets=branches,
+            presets=[],
+        )
+        return SetupPluginPreview(
+            self.identifier,
+            self.display_name,
+            "supported",
+            (
+                f"Value targets: {len(typed.value_targets)}",
+                f"Branch targets: {len(typed.branch_targets)}",
+                f"Presets не включено: {presets_omitted}",
+            ),
+        )
+
+    def prepare_product_setup_import(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> SetupPluginImportPreparation:
+        preview = self.preview_product_setup(product, section)
+        return SetupPluginImportPreparation(
+            self.identifier,
+            self.display_name,
+            "supported",
+            details=preview.details,
+        )
+
+    def build_product_setup_configuration(
+        self,
+        product_id: str,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+        adapted_values: dict[str, str],
+    ) -> PluginConfiguration:
+        self.preview_product_setup(product, section)
+        if adapted_values:
+            raise ValueError("Windows Registry has no local path adaptations")
+        enabled = section.data["enabled"]
+        values = section.data["value_targets"]
+        branches = section.data["branch_targets"]
+        if (
+            type(enabled) is not bool
+            or not isinstance(values, list)
+            or not isinstance(branches, list)
+        ):
+            raise ValueError("Invalid Windows Registry setup data")
+        typed = WindowsRegistryConfiguration.create(
+            enabled=enabled,
+            value_targets=values,
+            branch_targets=branches,
+            presets=[],
+        )
+        return PluginConfiguration(
+            product_id,
+            self.identifier,
+            enabled,
+            typed.to_settings(),
+        )
 
     def inspect(
         self,

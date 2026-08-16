@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Налаштування імпорту | QA Deck{% endblock %}
+{% macro status_text(status) %}{% if status == 'missing' %}Шлях недоступний на цьому комп’ютері. Вкажіть локальний шлях.{% elif status == 'not_probed' %}Шлях не перевірено з міркувань безпеки.{% elif status == 'not_provided' %}Значення не вказано.{% endif %}{% endmacro %}
+{% macro plugin_status(status) %}{% if status == 'unsupported' %}Не підтримується{% elif status == 'omitted' %}Не включено{% elif status == 'invalid' %}Потребує виправлення{% elif status == 'ready' %}Буде збережено{% else %}{{ status }}{% endif %}{% endmacro %}
+{% block content %}
+  <section class="page-heading"><div><p class="eyebrow">Product Setup</p><h1>Налаштування імпорту</h1><p class="page-lead">Перевірте та за потреби змініть локальні значення.</p></div><a class="button button-secondary" href="{{ url_for('web.product_setup_import') }}">Вибрати інший файл</a></section>
+  <form method="post" action="{{ url_for('web.product_setup_import_validate') }}" {% if document_type == 'bundle' %}data-selection-scope{% endif %}>
+    <input type="hidden" name="source_token" value="{{ source_token }}">
+    {% if document_type == 'bundle' %}
+      <div class="selection-toolbar setup-selection-toolbar">
+        <button class="button button-secondary button-small" type="button" data-select-all>Вибрати всі</button>
+        <button class="button button-secondary button-small" type="button" data-clear-selection>Очистити вибір</button>
+        <span class="selection-count" aria-live="polite">Вибрано: <strong data-selected-count>{{ selected_indices|length }}</strong> із {{ adaptations|length }}</span>
+      </div>
+    {% endif %}
+    <div class="setup-preview-list">
+      {% for adaptation in adaptations %}
+        {% set index = adaptation.entry.index %}
+        {% set review_item = review_by_index.get(index) %}
+        <article class="setup-preview-card setup-configuration-card {{ 'setup-card-unselected' if index not in selected_indices else '' }}">
+          <header class="setup-preview-heading">
+            {% if document_type == 'bundle' %}<label class="checkbox-field setup-preview-selector"><input type="checkbox" name="selected_indices" value="{{ index }}" data-selectable-item {% if index in selected_indices %}checked{% endif %}><span class="sr-only">Імпортувати {{ adaptation.entry.package.product.name }}</span></label>{% else %}<input type="hidden" name="selected_indices" value="{{ index }}">{% endif %}
+            <div><p class="eyebrow">Product {{ loop.index }}</p><h2>{{ adaptation.entry.package.product.name }}</h2>{% if index not in selected_indices %}<span class="muted">Не вибрано для імпорту</span>{% endif %}</div>
+            {% if review_item and review_item.errors %}<span class="state-badge state-unavailable">{{ review_item.errors|length }} проблем</span>{% endif %}
+          </header>
+          {% if review_item and review_item.errors %}<div class="setup-problem-summary" role="alert"><strong>Потрібні виправлення</strong><ul class="compact-list">{% for error in review_item.errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+          <div class="plugin-form setup-adaptation-fields">
+            {% for field in adaptation.product_fields %}
+              {% set field_name = 'product_' ~ index ~ '_' ~ field.key %}
+              {% set current_value = form.get(field_name, field.value) %}
+              {% set reviewed_path = review_item.product_paths|selectattr('key', 'equalto', field.key)|first if review_item and field.key != 'name' else none %}
+              {% set field_error = namespace(found=false) %}
+              {% if review_item %}{% for error in review_item.errors %}{% if (field.key == 'name' and ('Назва Product' in error or 'такою назвою' in error)) or (field.key == 'executable_path' and ('executable' in error)) or (field.key == 'working_directory' and ('робочий каталог' in error or 'Робочий каталог' in error)) %}{% set field_error.found = true %}{% endif %}{% endfor %}{% endif %}
+              <div class="field {{ 'field-attention' if field_error.found or (reviewed_path and reviewed_path.path_status == 'missing') else '' }}">
+                <label for="{{ field_name }}">{{ 'Фінальна назва Product' if field.key == 'name' else field.label }}</label>
+                <input id="{{ field_name }}" name="{{ field_name }}" type="text" value="{{ current_value }}" maxlength="{{ 200 if field.key == 'name' else 4096 }}" {% if field.key in ['name', 'executable_path'] %}required{% endif %} {% if field_error.found %}aria-invalid="true"{% endif %}>
+                {% if current_value != field.value and field.value %}<p class="field-hint">Імпортовано: <code class="path-value">{{ field.value }}</code></p>{% endif %}
+                {% if reviewed_path and reviewed_path.path_status in ['missing', 'not_probed', 'not_provided'] %}<p class="field-hint {{ 'field-warning' if reviewed_path.path_status == 'missing' else '' }}">{{ status_text(reviewed_path.path_status) }}</p>{% endif %}
+              </div>
+            {% endfor %}
+            {% if adaptation.executable_relative_path %}
+              {% set install_name = 'product_' ~ index ~ '_install_directory' %}
+              <div class="setup-derived-fields"><div class="field"><label for="{{ install_name }}">Локальний каталог встановлення</label><input id="{{ install_name }}" name="{{ install_name }}" type="text" value="{{ form.get(install_name, adaptation.install_directory) }}" maxlength="4096"><p class="field-hint">Executable відносно каталогу: <code>{{ adaptation.executable_relative_path }}</code></p></div><button class="button button-secondary button-small" type="button" data-derive-product-paths data-install-input="{{ install_name }}" data-executable-input="product_{{ index }}_executable_path" data-working-input="product_{{ index }}_working_directory" data-executable-relative="{{ adaptation.executable_relative_path }}" data-working-relative="{{ adaptation.working_relative_path or '' }}">Побудувати локальні шляхи</button></div>
+            {% endif %}
+          </div>
+          {% if adaptation.plugins %}<details class="setup-plugin-details" {% if review_item and (review_item.errors or review_item.warnings) %}open{% endif %}><summary>Конфігурації плагінів: {{ adaptation.entry.package.plugin_sections|length }}</summary><div class="setup-plugin-list">
+            {% for plugin in adaptation.plugins %}
+              {% set plugin_review = review_item.plugins|selectattr('plugin_identifier', 'equalto', plugin.plugin_identifier)|first if review_item else none %}
+              <section class="plugin-panel setup-plugin-section"><header class="plugin-panel-heading"><div><h3>{{ plugin.display_name }}</h3><code>{{ plugin.plugin_identifier }}</code></div>{% if plugin.status != 'supported' or (plugin_review and plugin_review.status != 'ready') %}<span class="state-badge state-unavailable">{{ plugin_status(plugin_review.status if plugin_review else plugin.status) }}</span>{% endif %}</header>{% if plugin.message %}<p class="{{ 'alert alert-error' if plugin.status == 'invalid' else 'muted' }}">{{ plugin.message }}</p>{% endif %}{% if plugin.details %}<ul class="compact-list">{% for detail in plugin.details %}<li>{{ detail }}</li>{% endfor %}</ul>{% endif %}{% for field in plugin.fields %}{% set field_name = 'plugin_' ~ index ~ '_' ~ plugin.plugin_identifier ~ '_' ~ field.key %}{% set current_value = form.get(field_name, field.value) %}{% set reviewed_field = plugin_review.fields|selectattr('key', 'equalto', field.key)|first if plugin_review else none %}<div class="field {{ 'field-attention' if not current_value or (reviewed_field and reviewed_field.path_status == 'missing') else '' }}"><label for="{{ field_name }}">{{ field.label }}</label><input id="{{ field_name }}" name="{{ field_name }}" type="text" value="{{ current_value }}" maxlength="4096" required>{% if current_value != field.value and field.value %}<p class="field-hint">Імпортовано: <code class="path-value">{{ field.value }}</code></p>{% endif %}{% if reviewed_field and reviewed_field.path_status in ['missing', 'not_probed', 'not_provided'] %}<p class="field-hint {{ 'field-warning' if reviewed_field.path_status == 'missing' else '' }}">{{ status_text(reviewed_field.path_status) }}</p>{% endif %}</div>{% endfor %}{% if plugin_review and plugin_review.message and plugin_review.status == 'invalid' %}<p class="field-error" role="alert">{{ plugin_review.message }}</p>{% endif %}</section>
+            {% endfor %}
+          </div></details>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+    <p class="selection-empty muted" data-selection-empty hidden>Виберіть принаймні один Product.</p>
+    <div class="form-actions setup-primary-actions"><a class="button button-secondary" href="{{ url_for('web.product_list') }}">Скасувати</a><button class="button" type="submit" data-selection-submit data-dialog-return>Продовжити імпорт</button></div>
+  </form>
+
+  {% if confirmation_token %}
+    <dialog class="setup-dialog setup-confirm-dialog" aria-labelledby="setup-confirm-title" data-dialog-auto-open>
+      <form method="post" action="{{ url_for('web.product_setup_import_confirm') }}">
+        <div class="setup-dialog-heading"><div><p class="eyebrow">Підтвердження</p><h2 id="setup-confirm-title">Імпортувати налаштування?</h2></div><button class="dialog-close" type="button" data-dialog-close aria-label="Закрити">×</button></div>
+        <dl class="setup-confirm-summary"><div><dt>Products</dt><dd>{{ confirmation_product_count }}</dd></div><div><dt>Конфігурації плагінів</dt><dd>{{ confirmation_plugin_count }}</dd></div></dl>
+        <p class="muted">Файли програм, Registry, ліцензійні файли та логи не змінюються.</p>
+        <input type="hidden" name="confirmation_token" value="{{ confirmation_token }}"><input type="hidden" name="confirm" value="yes">
+        <div class="form-actions"><button class="button button-secondary" type="button" data-dialog-close>Скасувати</button><button class="button" type="submit" autofocus>Імпортувати</button></div>
+      </form>
+    </dialog>
+  {% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='product_setup_adaptation.js') }}"></script><script src="{{ url_for('static', filename='product_setup_selection.js') }}"></script><script src="{{ url_for('static', filename='dialogs.js') }}"></script>{% endblock %}

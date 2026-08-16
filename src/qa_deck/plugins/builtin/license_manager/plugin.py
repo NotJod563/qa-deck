@@ -10,7 +10,10 @@ from qa_deck.domain import (
     EnvironmentProfile,
     OperationStatus,
     PluginConfiguration,
+    PluginSetupSection,
+    PortablePath,
     Product,
+    ProductSetupProduct,
     RollbackStatus,
 )
 from qa_deck.domain.snapshot import SnapshotCaptureResult, SnapshotResource
@@ -41,6 +44,14 @@ from qa_deck.plugins.builtin.license_manager.service import (
     HIDE_ACTION,
     RESTORE_ACTION,
     LicenseManagerService,
+)
+from qa_deck.product_setup import (
+    SetupPluginImportPreparation,
+    SetupPluginPreview,
+    import_path_field,
+    make_portable_path,
+    preview_path,
+    validate_import_path,
 )
 from qa_deck.storage import OperationLogRepository
 
@@ -117,6 +128,110 @@ class LicenseManager:
         if configuration is None:
             return None
         return LicenseManagerConfiguration.from_plugin_configuration(configuration)
+
+    def export_product_setup(
+        self,
+        product: ProductSetupProduct,
+        configuration: PluginConfiguration,
+    ) -> PluginSetupSection:
+        typed = self.typed_configuration(configuration)
+        if typed is None:  # pragma: no cover
+            raise ValueError("License Manager configuration is missing")
+        directory = make_portable_path(
+            typed.license_directory, product.install_directory_hint
+        )
+        return PluginSetupSection(
+            self.identifier,
+            1,
+            {
+                "enabled": configuration.enabled,
+                "license_directory": directory.to_dict() if directory else None,
+                "license_files": list(typed.license_files),
+            },
+        )
+
+    def preview_product_setup(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> SetupPluginPreview:
+        del product
+        if section.schema_version != 1 or set(section.data) != {
+            "enabled",
+            "license_directory",
+            "license_files",
+        }:
+            raise ValueError("Unsupported License Manager setup section")
+        enabled = section.data["enabled"]
+        raw_directory = section.data["license_directory"]
+        raw_files = section.data["license_files"]
+        if type(enabled) is not bool or not isinstance(raw_files, list):
+            raise ValueError("Invalid License Manager setup data")
+        directory = (
+            PortablePath.from_dict(raw_directory)
+            if raw_directory is not None
+            else None
+        )
+        LicenseManagerConfiguration.create(
+            directory.original if directory else "", raw_files, enabled=enabled
+        )
+        path = preview_path("Каталог ліцензій", directory)
+        return SetupPluginPreview(
+            self.identifier,
+            self.display_name,
+            "supported",
+            (f"Ліцензійних файлів: {len(raw_files)}",),
+            (path,) if path else (),
+        )
+
+    def prepare_product_setup_import(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> SetupPluginImportPreparation:
+        preview = self.preview_product_setup(product, section)
+        raw_directory = section.data["license_directory"]
+        directory = (
+            PortablePath.from_dict(raw_directory)
+            if raw_directory is not None
+            else None
+        )
+        return SetupPluginImportPreparation(
+            self.identifier,
+            self.display_name,
+            "supported",
+            (
+                import_path_field(
+                    "license_directory",
+                    "Каталог ліцензій",
+                    directory.original if directory else "",
+                ),
+            ),
+            preview.details,
+        )
+
+    def build_product_setup_configuration(
+        self,
+        product_id: str,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+        adapted_values: dict[str, str],
+    ) -> PluginConfiguration:
+        self.preview_product_setup(product, section)
+        if set(adapted_values) != {"license_directory"}:
+            raise ValueError("License Manager adaptation fields are invalid")
+        enabled = section.data["enabled"]
+        raw_files = section.data["license_files"]
+        if type(enabled) is not bool or not isinstance(raw_files, list):
+            raise ValueError("Invalid License Manager setup data")
+        return self.create_configuration(
+            product_id=product_id,
+            enabled=enabled,
+            license_directory=validate_import_path(
+                adapted_values["license_directory"], "Каталог ліцензій"
+            ),
+            license_files_text="\n".join(str(item) for item in raw_files),
+        )
 
     def inspect(
         self,

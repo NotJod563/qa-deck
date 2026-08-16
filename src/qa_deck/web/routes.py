@@ -6,7 +6,7 @@ import shutil
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any, cast
 from uuid import uuid4
 
@@ -29,6 +29,8 @@ from qa_deck.domain import (
     OperationStatus,
     PluginConfiguration,
     Product,
+    ProductSetupBundle,
+    ProductSetupPackage,
     ProfileLicenseState,
     RollbackStatus,
     Snapshot,
@@ -63,6 +65,16 @@ from qa_deck.plugins.builtin.windows_registry import (
     RegistryRollbackStatus,
     RegistryValueState,
     WindowsRegistryConfiguration,
+)
+from qa_deck.product_deletion import ProductDeletionService
+from qa_deck.product_setup import (
+    ProductSetupImportReview,
+    ProductSetupImportSource,
+    ProductSetupImportStateStore,
+    ProductSetupService,
+    SetupProductAdaptation,
+    SetupProductAdaptedValues,
+    default_setup_adapted_values,
 )
 from qa_deck.snapshot import (
     RestorePlanStatus,
@@ -204,7 +216,12 @@ def index() -> Response:
 @web_blueprint.get("/products")
 def product_list() -> str:
     """Show all stored products."""
-    return render_template("products/list.html", products=_repository().list_all())
+    return render_template(
+        "products/list.html",
+        products=_repository().list_all(),
+        export_error=None,
+        deletion_success=request.args.get("deleted") == "1",
+    )
 
 
 @web_blueprint.route("/products/new", methods=["GET", "POST"])
@@ -214,13 +231,20 @@ def product_new() -> str | Response | tuple[str, int]:
         return render_template("products/new.html", error=None, form={})
 
     try:
+        executable_path = _clean_input_path(
+            _optional_text(request.form.get("executable_path", ""))
+        )
         product = Product(
             id=str(uuid4()),
-            name=request.form.get("name", ""),
+            name=(
+                request.form.get("name", "").strip()
+                or _derived_product_name(executable_path)
+            ),
             description=request.form.get("description", "").strip(),
-            executable_path=_optional_text(request.form.get("executable_path", "")),
-            working_directory=_optional_text(
-                request.form.get("working_directory", "")
+            executable_path=executable_path,
+            working_directory=(
+                _optional_text(request.form.get("working_directory", ""))
+                or _derived_working_directory(executable_path)
             ),
             launch_arguments=_launch_arguments(
                 request.form.get("launch_arguments", "")
@@ -240,10 +264,216 @@ def product_new() -> str | Response | tuple[str, int]:
     return redirect(url_for("web.product_detail", product_id=product.id))
 
 
+@web_blueprint.get("/product-setup/import")
+def product_setup_import() -> str:
+    return render_template("product_setup/import.html", error=None)
+
+
+@web_blueprint.post("/product-setup/import/configure")
+def product_setup_import_configure() -> str | tuple[str, int]:
+    upload = request.files.get("setup_file")
+    if upload is None or not upload.filename:
+        return render_template(
+            "product_setup/import.html",
+            error="Оберіть JSON-файл Product Setup.",
+        ), 400
+    limit = _positive_config_int("PRODUCT_SETUP_MAX_BYTES")
+    payload = upload.stream.read(limit + 1)
+    if len(payload) > limit:
+        return render_template(
+            "product_setup/import.html",
+            error="Product Setup файл перевищує дозволений розмір.",
+        ), 413
+    try:
+        data = json.loads(
+            payload.decode("utf-8"),
+            object_pairs_hook=_unique_json_object,
+        )
+        document_type, packages = _product_setup_document(data)
+        source = _product_setup_import_state().create_source(
+            packages, document_type
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError):
+        return render_template(
+            "product_setup/import.html",
+            error="Product Setup файл має некоректний тип, структуру або версію.",
+        ), 400
+    preparations = tuple(
+        _product_setup_service().prepare_import(entry) for entry in source.entries
+    )
+    initial_values = tuple(
+        default_setup_adapted_values(item) for item in preparations
+    )
+    review = _product_setup_service().review_import(
+        source, initial_values, _repository().list_all()
+    )
+    return _render_setup_configuration(
+        source,
+        preparations,
+        review,
+        {},
+        tuple(entry.index for entry in source.entries),
+    )
+
+
+@web_blueprint.post("/product-setup/import/configure/validate")
+def product_setup_import_validate() -> str | tuple[str, int]:
+    source = _product_setup_import_state().get_source(
+        request.form.get("source_token", "")
+    )
+    if source is None:
+        return _render_setup_import_error(
+            "Налаштування імпорту застаріло. Завантажте файл ще раз.", 409
+        )
+    try:
+        selected = _selected_setup_indices(source)
+        all_preparations = tuple(
+            _product_setup_service().prepare_import(entry)
+            for entry in source.entries
+        )
+        selected_preparations = tuple(all_preparations[index] for index in selected)
+        adaptations = _setup_adapted_values(selected_preparations)
+        review = _product_setup_service().review_import(
+            source,
+            adaptations,
+            _repository().list_all(),
+        )
+    except ValueError:
+        return _render_setup_import_error("Дані локальної адаптації некоректні.", 400)
+    if not review.can_confirm:
+        return (
+            _render_setup_configuration(
+                source,
+                all_preparations,
+                review,
+                request.form,
+                selected,
+            ),
+            400,
+        )
+    intent = _product_setup_import_state().create_intent(source, adaptations)
+    return _render_setup_configuration(
+        source,
+        all_preparations,
+        review,
+        request.form,
+        selected,
+        intent.token,
+    )
+
+
+@web_blueprint.post("/product-setup/import/confirm")
+def product_setup_import_confirm() -> Response | tuple[str, int]:
+    if request.form.get("confirm") != "yes":
+        return _render_setup_import_error("Підтвердження імпорту не отримано.", 400)
+    intent = _product_setup_import_state().take_intent(
+        request.form.get("confirmation_token", "")
+    )
+    if intent is None:
+        return _render_setup_import_error(
+            "Підтвердження застаріло або вже було використане.", 409
+        )
+    result = _product_setup_service().execute_import(intent, _repository())
+    result_id = _product_setup_import_state().save_result(result)
+    return redirect(url_for("web.product_setup_import_result", result_id=result_id))
+
+
+@web_blueprint.get("/product-setup/import/results/<result_id>")
+def product_setup_import_result(result_id: str) -> str:
+    result = _product_setup_import_state().get_result(result_id)
+    if result is None:
+        abort(404)
+    return render_template("product_setup/result.html", result=result)
+
+
+@web_blueprint.post("/products/setup/export")
+def export_product_setup_bundle() -> Response | tuple[str, int]:
+    products = _repository().list_all()
+    selected_ids = request.form.getlist("product_ids")
+    selected_id_set = set(selected_ids)
+    selected = [product for product in products if product.id in selected_id_set]
+    if (
+        not selected_ids
+        or len(selected_ids) != len(selected_id_set)
+        or len(selected) != len(selected_id_set)
+    ):
+        return (
+            render_template(
+                "products/list.html",
+                products=products,
+                export_error="Оберіть щонайменше один коректний Product.",
+            ),
+            400,
+        )
+    try:
+        service = _product_setup_service()
+        bundle = ProductSetupBundle(
+            tuple(service.export(product) for product in selected)
+        )
+        payload = _product_setup_json(bundle.to_dict())
+    except Exception:
+        current_app.logger.exception("Could not export Product Setup Bundle")
+        return (
+            render_template(
+                "products/list.html",
+                products=products,
+                export_error=(
+                    "Не вдалося безпечно створити Setup Bundle. "
+                    "Перевірте унікальність назв Product і повторіть спробу."
+                ),
+            ),
+            503,
+        )
+    response = Response(payload, content_type="application/json; charset=utf-8")
+    response.headers["Content-Disposition"] = (
+        'attachment; filename="qa-deck-setup-bundle.json"'
+    )
+    return response
+
+
 @web_blueprint.get("/products/<product_id>")
 def product_detail(product_id: str) -> str:
     """Show one product or return 404 when it is missing."""
     return _render_product_detail(_product_or_404(product_id))
+
+
+@web_blueprint.post("/products/<product_id>/delete")
+def delete_product(product_id: str) -> str | Response | tuple[str, int]:
+    product = _repository().get(product_id)
+    if product is None:
+        abort(404)
+    if request.form.get("confirm") != "yes":
+        return (
+            _render_product_detail(
+                product,
+                deletion_error="Підтвердження видалення не отримано.",
+            ),
+            400,
+        )
+    result = _product_deletion_service().delete(product_id)
+    if not result.succeeded:
+        if result.status == "not_found":
+            abort(404)
+        return _render_product_detail(product, deletion_error=result.message), 503
+    return redirect(url_for("web.product_list", deleted="1"))
+
+
+@web_blueprint.get("/products/<product_id>/setup/export")
+def export_product_setup(product_id: str) -> Response:
+    product = _product_or_404(product_id)
+    try:
+        package = _product_setup_service().export(product)
+        payload = _product_setup_json(package.to_dict())
+    except Exception:
+        current_app.logger.exception(
+            "Could not export Product Setup for product %s", product.id
+        )
+        abort(503)
+    response = Response(payload, content_type="application/json; charset=utf-8")
+    response.headers["Content-Disposition"] = (
+        f'attachment; filename="{_setup_filename(product.name)}"'
+    )
+    return response
 
 
 @web_blueprint.post("/products/<product_id>/inspect-executable")
@@ -637,8 +867,8 @@ def execute_windows_registry_preset(product_id: str, preset_id: str) -> Response
                     intent.preset_name,
                     datetime.now(UTC),
                     warnings=(
-                        "Registry configuration changed after preview. "
-                        "No changes were made.",
+                        "Конфігурація Registry змінилася після перевірки. "
+                        "Зміни не виконано.",
                     ),
                 )
         result = _log_registry_execution(result)
@@ -1238,6 +1468,31 @@ def _plugin_manager() -> PluginManager:
     return cast(
         PluginManager,
         current_app.extensions["plugin_manager"],
+    )
+
+
+def _product_setup_service() -> ProductSetupService:
+    return ProductSetupService(
+        _plugin_manager(),
+        _configuration_repository(),
+        current_app.logger,
+    )
+
+
+def _product_deletion_service() -> ProductDeletionService:
+    return ProductDeletionService(
+        _repository(),
+        _configuration_repository(),
+        _snapshot_repository(),
+        _environment_profile_repository(),
+        current_app.logger,
+    )
+
+
+def _product_setup_import_state() -> ProductSetupImportStateStore:
+    return cast(
+        ProductSetupImportStateStore,
+        current_app.extensions["product_setup_import_state"],
     )
 
 
@@ -2462,3 +2717,168 @@ class _CleanupIterable:
 
 def _launch_arguments(value: str) -> list[str]:
     return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+def _derived_product_name(executable_path: str | None) -> str:
+    if not executable_path:
+        return ""
+    path = _portable_pure_path(executable_path)
+    return path.stem or path.parent.name
+
+
+def _derived_working_directory(executable_path: str | None) -> str | None:
+    if not executable_path:
+        return None
+    parent = _portable_pure_path(executable_path).parent
+    return str(parent) if str(parent) not in {"", "."} else None
+
+
+def _portable_pure_path(value: str) -> PurePath:
+    return (
+        PureWindowsPath(value)
+        if "\\" in value or re.match(r"^[A-Za-z]:/", value)
+        else PurePosixPath(value)
+    )
+
+
+def _clean_input_path(value: str | None) -> str | None:
+    if (
+        value is not None
+        and len(value) >= 2
+        and value[0] == value[-1]
+        and value[0] in {'"', "'"}
+    ):
+        return value[1:-1]
+    return value
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Product Setup JSON contains a duplicate field")
+        result[key] = value
+    return result
+
+
+def _setup_filename(product_name: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", product_name).strip("-._")
+    return f"{slug or 'product'}-setup.json"
+
+
+def _product_setup_json(data: dict[str, object]) -> str:
+    return json.dumps(
+        data,
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+
+def _product_setup_document(
+    data: object,
+) -> tuple[str, tuple[ProductSetupPackage, ...]]:
+    if not isinstance(data, dict):
+        raise ValueError("Product Setup document must be an object")
+    fields = set(data)
+    if fields == {"document_type", "schema_version", "packages"}:
+        bundle = ProductSetupBundle.from_dict(data)
+        return "bundle", bundle.packages
+    if fields == {
+        "schema_version",
+        "product",
+        "plugin_sections",
+        "omitted_plugins",
+    }:
+        package = ProductSetupPackage.from_dict(data)
+        return "package", (package,)
+    raise ValueError("Product Setup document type is unknown or ambiguous")
+
+
+def _selected_setup_indices(source: ProductSetupImportSource) -> tuple[int, ...]:
+    try:
+        selected = tuple(int(item) for item in request.form.getlist("selected_indices"))
+    except ValueError as error:
+        raise ValueError("Invalid Product selection") from error
+    allowed = {item.index for item in source.entries}
+    if (
+        not selected
+        or len(selected) != len(set(selected))
+        or any(index not in allowed for index in selected)
+    ):
+        raise ValueError("Invalid Product selection")
+    return tuple(index for index in sorted(allowed) if index in set(selected))
+
+
+def _setup_adapted_values(
+    preparations: tuple[SetupProductAdaptation, ...],
+) -> tuple[SetupProductAdaptedValues, ...]:
+    values: list[SetupProductAdaptedValues] = []
+    for preparation in preparations:
+        index = preparation.entry.index
+        plugin_values = tuple(
+            (
+                plugin.plugin_identifier,
+                tuple(
+                    (
+                        field.key,
+                        request.form.get(
+                            _setup_plugin_field_name(
+                                index, plugin.plugin_identifier, field.key
+                            ),
+                            "",
+                        ),
+                    )
+                    for field in plugin.fields
+                ),
+            )
+            for plugin in preparation.plugins
+            if plugin.status == "supported"
+        )
+        values.append(
+            SetupProductAdaptedValues(
+                index,
+                request.form.get(f"product_{index}_name", ""),
+                request.form.get(f"product_{index}_executable_path", ""),
+                request.form.get(f"product_{index}_working_directory", ""),
+                plugin_values,
+            )
+        )
+    return tuple(values)
+
+
+def _setup_plugin_field_name(index: int, identifier: str, key: str) -> str:
+    return f"plugin_{index}_{identifier}_{key}"
+
+
+def _render_setup_import_error(message: str, status: int) -> tuple[str, int]:
+    return render_template("product_setup/import.html", error=message), status
+
+
+def _render_setup_configuration(
+    source: ProductSetupImportSource,
+    preparations: tuple[SetupProductAdaptation, ...],
+    review: ProductSetupImportReview,
+    form: object,
+    selected_indices: tuple[int, ...],
+    confirmation_token: str | None = None,
+) -> str:
+    review_by_index = {item.entry.index: item for item in review.products}
+    plugin_count = sum(
+        plugin.status == "ready"
+        for product in review.products
+        for plugin in product.plugins
+    )
+    return render_template(
+        "product_setup/adapt.html",
+        source_token=source.token,
+        document_type=source.document_type,
+        adaptations=preparations,
+        form=form,
+        selected_indices=set(selected_indices),
+        review=review,
+        review_by_index=review_by_index,
+        confirmation_token=confirmation_token,
+        confirmation_product_count=len(review.products),
+        confirmation_plugin_count=plugin_count,
+    )

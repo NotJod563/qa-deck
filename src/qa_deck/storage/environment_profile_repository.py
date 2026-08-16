@@ -80,6 +80,12 @@ class EnvironmentProfileRepository:
         )
         return removed
 
+    def delete_for_product(self, product_id: str) -> list[EnvironmentProfile]:
+        profiles = self._list_all()
+        removed = [item for item in profiles if item.product_id == product_id]
+        self._write([item for item in profiles if item.product_id != product_id])
+        return removed
+
     def _list_all(self) -> list[EnvironmentProfile]:
         return [
             EnvironmentProfile.from_dict(item)

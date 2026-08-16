@@ -18,27 +18,27 @@
     </div>
   {% endif %}
 
-  <form class="form-card" method="post">
+  <form class="form-card" method="post" data-product-form>
     <div class="field">
-      <label for="name">Назва <span aria-hidden="true">*</span></label>
-      <input id="name" name="name" required autocomplete="off" value="{{ form.get('name', '') }}">
-      <p class="field-hint">Зрозуміла назва тестового продукту.</p>
-    </div>
-
-    <div class="field">
-      <label for="description">Опис</label>
-      <textarea id="description" name="description" rows="4">{{ form.get('description', '') }}</textarea>
+      <label for="executable_path">Шлях до executable</label>
+      <input id="executable_path" name="executable_path" placeholder="C:\Apps\Sample\app.exe" value="{{ form.get('executable_path', '') }}" data-product-executable autofocus>
+      <p class="field-hint">Назва і робочий каталог заповняться автоматично. Їх можна змінити.</p>
     </div>
 
     <div class="field-grid">
       <div class="field">
-        <label for="executable_path">Шлях до executable</label>
-        <input id="executable_path" name="executable_path" placeholder="C:\Apps\Sample\app.exe" value="{{ form.get('executable_path', '') }}">
+        <label for="name">Назва</label>
+        <input id="name" name="name" autocomplete="off" value="{{ form.get('name', '') }}" data-product-name>
       </div>
       <div class="field">
         <label for="working_directory">Робочий каталог</label>
-        <input id="working_directory" name="working_directory" placeholder="C:\Apps\Sample" value="{{ form.get('working_directory', '') }}">
+        <input id="working_directory" name="working_directory" placeholder="C:\Apps\Sample" value="{{ form.get('working_directory', '') }}" data-product-working-directory>
       </div>
+    </div>
+
+    <div class="field">
+      <label for="description">Опис</label>
+      <textarea id="description" name="description" rows="3">{{ form.get('description', '') }}</textarea>
     </div>
 
     <div class="field">
@@ -53,3 +53,5 @@
     </div>
   </form>
 {% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='product_form.js') }}" defer></script>{% endblock %}

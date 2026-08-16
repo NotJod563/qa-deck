@@ -6,7 +6,13 @@ from datetime import UTC, datetime
 from logging import Logger
 from pathlib import Path
 
-from qa_deck.domain import PluginConfiguration, Product
+from qa_deck.domain import (
+    PluginConfiguration,
+    PluginSetupSection,
+    PortablePath,
+    Product,
+    ProductSetupProduct,
+)
 from qa_deck.domain.snapshot import SnapshotCaptureResult, SnapshotResource
 from qa_deck.plugins.api import Plugin, PluginAction, RiskLevel
 from qa_deck.plugins.builtin.log_collector.collection import (
@@ -17,6 +23,14 @@ from qa_deck.plugins.builtin.log_collector.models import (
     LogCollectorConfiguration,
     LogInspectionResult,
     LogSourceInspection,
+)
+from qa_deck.product_setup import (
+    SetupPluginImportPreparation,
+    SetupPluginPreview,
+    import_path_field,
+    make_portable_path,
+    preview_path,
+    validate_import_path,
 )
 from qa_deck.storage import OperationLogRepository
 
@@ -77,6 +91,112 @@ class LogCollector:
         if configuration.plugin_identifier != self.identifier:
             raise ValueError("Конфігурація належить іншому плагіну.")
         return LogCollectorConfiguration.from_plugin_configuration(configuration)
+
+    def export_product_setup(
+        self,
+        product: ProductSetupProduct,
+        configuration: PluginConfiguration,
+    ) -> PluginSetupSection:
+        typed = self.typed_configuration(configuration)
+        directories = [
+            path.to_dict()
+            for value in typed.log_directories
+            if (path := make_portable_path(value, product.install_directory_hint))
+            is not None
+        ]
+        return PluginSetupSection(
+            self.identifier,
+            1,
+            {"enabled": configuration.enabled, "log_directories": directories},
+        )
+
+    def preview_product_setup(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> SetupPluginPreview:
+        del product
+        if section.schema_version != 1 or set(section.data) != {
+            "enabled",
+            "log_directories",
+        }:
+            raise ValueError("Unsupported Log Collector setup section")
+        enabled = section.data["enabled"]
+        raw_directories = section.data["log_directories"]
+        if type(enabled) is not bool or not isinstance(raw_directories, list):
+            raise ValueError("Invalid Log Collector setup data")
+        directories = tuple(PortablePath.from_dict(item) for item in raw_directories)
+        LogCollectorConfiguration.from_values([path.original for path in directories])
+        if enabled and not directories:
+            raise ValueError("Enabled Log Collector setup requires a directory")
+        paths = tuple(
+            preview
+            for index, path in enumerate(directories, start=1)
+            if (preview := preview_path(f"Каталог логів {index}", path)) is not None
+        )
+        return SetupPluginPreview(
+            self.identifier,
+            self.display_name,
+            "supported",
+            (f"Каталогів логів: {len(directories)}",),
+            paths,
+        )
+
+    def prepare_product_setup_import(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> SetupPluginImportPreparation:
+        preview = self.preview_product_setup(product, section)
+        raw_directories = section.data["log_directories"]
+        if not isinstance(raw_directories, list):  # pragma: no cover
+            raise ValueError("Invalid Log Collector setup data")
+        directories = tuple(
+            PortablePath.from_dict(item) for item in raw_directories
+        )
+        return SetupPluginImportPreparation(
+            self.identifier,
+            self.display_name,
+            "supported",
+            tuple(
+                import_path_field(
+                    f"log_directory_{index}",
+                    f"Каталог логів {index + 1}",
+                    path.original,
+                )
+                for index, path in enumerate(directories)
+            ),
+            preview.details,
+        )
+
+    def build_product_setup_configuration(
+        self,
+        product_id: str,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+        adapted_values: dict[str, str],
+    ) -> PluginConfiguration:
+        self.preview_product_setup(product, section)
+        raw_directories = section.data["log_directories"]
+        if not isinstance(raw_directories, list):  # pragma: no cover
+            raise ValueError("Invalid Log Collector setup data")
+        expected = {f"log_directory_{index}" for index in range(len(raw_directories))}
+        if set(adapted_values) != expected:
+            raise ValueError("Log Collector adaptation fields are invalid")
+        enabled = section.data["enabled"]
+        if type(enabled) is not bool:  # pragma: no cover
+            raise ValueError("Invalid Log Collector setup data")
+        return self.create_configuration(
+            product_id,
+            enabled,
+            [
+                validate_import_path(
+                    adapted_values[f"log_directory_{index}"],
+                    f"Каталог логів {index + 1}",
+                )
+                for index in range(len(raw_directories))
+            ],
+        )
 
     def inspect(self, configuration: PluginConfiguration) -> LogInspectionResult:
         typed = self.typed_configuration(configuration)

@@ -11,7 +11,9 @@ from typing import Protocol
 from qa_deck.domain import (
     EnvironmentProfile,
     PluginConfiguration,
+    PluginSetupSection,
     Product,
+    ProductSetupProduct,
     RollbackStatus,
 )
 from qa_deck.domain.snapshot import (
@@ -49,6 +51,42 @@ class Plugin(Protocol):
 
     def get_actions(self) -> list[PluginAction]:
         """Return actions exposed by the plugin."""
+        ...
+
+
+class ProductSetupProvider(Protocol):
+    """Optional capability for portable setup export and configuration import."""
+
+    identifier: str
+
+    def export_product_setup(
+        self,
+        product: ProductSetupProduct,
+        configuration: PluginConfiguration,
+    ) -> PluginSetupSection:
+        ...
+
+    def preview_product_setup(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> object:
+        ...
+
+    def prepare_product_setup_import(
+        self,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+    ) -> object:
+        ...
+
+    def build_product_setup_configuration(
+        self,
+        product_id: str,
+        product: ProductSetupProduct,
+        section: PluginSetupSection,
+        adapted_values: dict[str, str],
+    ) -> PluginConfiguration:
         ...
 
 

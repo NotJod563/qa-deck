@@ -1,10 +1,9 @@
 """JSON-backed storage for products."""
 
-import json
 from pathlib import Path
-from typing import cast
 
 from qa_deck.domain import Product
+from qa_deck.storage.json_file import read_json_list, write_json_list_atomic
 
 
 class ProductRepository:
@@ -15,13 +14,7 @@ class ProductRepository:
 
     def list_all(self) -> list[Product]:
         """Return all stored products."""
-        if not self._file_path.exists():
-            return []
-
-        with self._file_path.open(encoding="utf-8") as file:
-            data = cast(list[dict[str, object]], json.load(file))
-
-        return [Product.from_dict(item) for item in data]
+        return [Product.from_dict(item) for item in read_json_list(self._file_path)]
 
     def get(self, product_id: str) -> Product | None:
         """Return the product with the exact id, if it exists."""
@@ -35,18 +28,26 @@ class ProductRepository:
         products = self.list_all()
         if any(existing.id == product.id for existing in products):
             raise ValueError(f"Product with id '{product.id}' already exists")
+        if any(
+            existing.name.casefold() == product.name.casefold()
+            for existing in products
+        ):
+            raise ValueError(f"Product with name '{product.name}' already exists")
 
         products.append(product)
         self._save(products)
 
-    def _save(self, products: list[Product]) -> None:
-        self._file_path.parent.mkdir(parents=True, exist_ok=True)
+    def remove(self, product_id: str) -> Product | None:
+        """Remove and return one exact Product, if it exists."""
+        products = self.list_all()
+        removed = next((item for item in products if item.id == product_id), None)
+        if removed is None:
+            return None
+        self._save([item for item in products if item.id != product_id])
+        return removed
 
-        with self._file_path.open("w", encoding="utf-8") as file:
-            json.dump(
-                [product.to_dict() for product in products],
-                file,
-                ensure_ascii=False,
-                indent=2,
-            )
-            file.write("\n")
+    def _save(self, products: list[Product]) -> None:
+        write_json_list_atomic(
+            self._file_path,
+            [product.to_dict() for product in products],
+        )

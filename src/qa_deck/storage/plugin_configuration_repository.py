@@ -67,6 +67,19 @@ class PluginConfigurationRepository:
             [item.to_dict() for item in configurations],
         )
 
+    def delete_for_product(self, product_id: str) -> list[PluginConfiguration]:
+        configurations = self._list_all()
+        removed = [item for item in configurations if item.product_id == product_id]
+        write_json_list_atomic(
+            self._file_path,
+            [
+                item.to_dict()
+                for item in configurations
+                if item.product_id != product_id
+            ],
+        )
+        return removed
+
     def _list_all(self) -> list[PluginConfiguration]:
         return [
             PluginConfiguration.from_dict(item)

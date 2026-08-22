@@ -459,7 +459,7 @@ def delete_product(product_id: str) -> str | Response | tuple[str, int]:
 
 
 @web_blueprint.get("/products/<product_id>/setup/export")
-def export_product_setup(product_id: str) -> Response:
+def export_product_setup(product_id: str) -> Response | tuple[str, int]:
     product = _product_or_404(product_id)
     try:
         package = _product_setup_service().export(product)
@@ -468,7 +468,16 @@ def export_product_setup(product_id: str) -> Response:
         current_app.logger.exception(
             "Could not export Product Setup for product %s", product.id
         )
-        abort(503)
+        return (
+            _render_product_detail(
+                product,
+                product_setup_export_error=(
+                    "Не вдалося створити файл налаштувань Product Setup. "
+                    "Перевірте конфігурації плагінів і повторіть спробу."
+                ),
+            ),
+            503,
+        )
     response = Response(payload, content_type="application/json; charset=utf-8")
     response.headers["Content-Disposition"] = (
         f'attachment; filename="{_setup_filename(product.name)}"'
@@ -527,6 +536,7 @@ def save_license_manager_configuration(product_id: str) -> str | Response:
         url_for(
             "web.product_detail",
             product_id=product.id,
+            open="license-manager-settings",
             _anchor="license-manager",
         )
     )
@@ -555,7 +565,11 @@ def inspect_licenses(product_id: str) -> str:
             product, license_error=validation_error
         ), 400
     result = plugin.inspect(configuration)
-    return _render_product_detail(product, license_result=result)
+    return _render_product_detail(
+        product,
+        license_result=result,
+        open_workspace="license-manager",
+    )
 
 
 @web_blueprint.post(
@@ -624,7 +638,11 @@ def inspect_license_backup(product_id: str) -> str:
             product,
             license_error="Не вдалося безпечно перевірити backup.",
         ), 500
-    return _render_product_detail(product, backup_result=result)
+    return _render_product_detail(
+        product,
+        backup_result=result,
+        open_workspace="license-manager",
+    )
 
 
 @web_blueprint.post(
@@ -666,6 +684,7 @@ def save_log_collector_configuration(product_id: str) -> str | Response:
         url_for(
             "web.product_detail",
             product_id=product.id,
+            open="log-collector-settings",
             _anchor="log-collector",
         )
     )
@@ -697,7 +716,11 @@ def inspect_log_sources(product_id: str) -> str:
             product,
             log_error="Збережена конфігурація Log Collector некоректна.",
         ), 400
-    return _render_product_detail(product, log_result=result)
+    return _render_product_detail(
+        product,
+        log_result=result,
+        open_workspace="log-collector",
+    )
 
 
 @web_blueprint.post(
@@ -914,6 +937,7 @@ def create_environment_profile(product_id: str) -> str | Response:
         url_for(
             "web.product_detail",
             product_id=product.id,
+            open="environment-profiles",
             _anchor="environment-profiles",
         )
     )
@@ -943,6 +967,7 @@ def update_environment_profile(
         url_for(
             "web.product_detail",
             product_id=product.id,
+            open="environment-profiles",
             _anchor="environment-profiles",
         )
     )
@@ -962,6 +987,7 @@ def delete_environment_profile(product_id: str, profile_id: str) -> Response:
         url_for(
             "web.product_detail",
             product_id=product.id,
+            open="environment-profiles",
             _anchor="environment-profiles",
         )
     )
@@ -1158,7 +1184,12 @@ def create_snapshot(product_id: str) -> str | Response | tuple[str, int]:
             snapshot.id,
         )
     return redirect(
-        url_for("web.product_detail", product_id=product.id, _anchor="snapshots")
+        url_for(
+            "web.product_detail",
+            product_id=product.id,
+            open="snapshots",
+            _anchor="snapshots",
+        )
     )
 
 
@@ -1182,7 +1213,12 @@ def delete_snapshot(product_id: str, snapshot_id: str) -> Response:
             removed.id,
         )
     return redirect(
-        url_for("web.product_detail", product_id=product.id, _anchor="snapshots")
+        url_for(
+            "web.product_detail",
+            product_id=product.id,
+            open="snapshots",
+            _anchor="snapshots",
+        )
     )
 
 
@@ -1378,7 +1414,9 @@ def collect_logs(product_id: str) -> str | Response | tuple[str, int]:
     )
     if not result.has_archive:
         return _render_product_detail(
-            product, log_collection_result=result
+            product,
+            log_collection_result=result,
+            open_workspace="log-collector",
         ), 400
 
     assert result.archive_path is not None
@@ -1897,7 +1935,11 @@ def _preview_license_action(product_id: str, action_identifier: str) -> str:
         configuration,
         action_identifier,
     )
-    return _render_product_detail(product, change_plan=plan)
+    return _render_product_detail(
+        product,
+        change_plan=plan,
+        open_workspace="license-manager",
+    )
 
 
 def _confirm_license_action(product_id: str, action_identifier: str) -> str:
@@ -1931,7 +1973,11 @@ def _confirm_license_action(product_id: str, action_identifier: str) -> str:
         operation_logs=_operation_logs(),
         logger=current_app.logger,
     )
-    return _render_product_detail(product, operation_result=result)
+    return _render_product_detail(
+        product,
+        operation_result=result,
+        open_workspace="license-manager",
+    )
 
 
 def _render_product_detail(
@@ -1970,21 +2016,44 @@ def _render_product_detail(
             ),
         )
 
-    configuration_error = None
+    license_configuration = None
+    log_configuration = None
+    registry_configuration = None
+    license_configuration_error = None
+    log_configuration_error = None
+    registry_configuration_error = None
     try:
         license_configuration = _license_configuration(product.id)
+    except Exception:
+        current_app.logger.exception(
+            "Could not read License Manager configuration for product %s",
+            product.id,
+        )
+        license_configuration_error = (
+            "Не вдалося завантажити конфігурацію License Manager. "
+            "Інші інструменти залишаються доступними."
+        )
+    try:
         log_configuration = _log_configuration(product.id)
+    except Exception:
+        current_app.logger.exception(
+            "Could not read Log Collector configuration for product %s",
+            product.id,
+        )
+        log_configuration_error = (
+            "Не вдалося завантажити конфігурацію Log Collector. "
+            "Інші інструменти залишаються доступними."
+        )
+    try:
         registry_configuration = _registry_configuration(product.id)
     except Exception:
         current_app.logger.exception(
-            "Could not read plugin configurations for product %s", product.id
+            "Could not read Windows Registry configuration for product %s",
+            product.id,
         )
-        license_configuration = None
-        log_configuration = None
-        registry_configuration = None
-        configuration_error = (
-            "Сховище конфігурацій плагінів недоступне або пошкоджене. "
-            "Інші дані продукту залишаються доступними."
+        registry_configuration_error = (
+            "Не вдалося завантажити конфігурацію Windows Registry. "
+            "Інші інструменти залишаються доступними."
         )
     license_typed = None
     log_typed = None
@@ -2003,7 +2072,9 @@ def _render_product_detail(
                 license_configuration
             )
         except ValueError:
-            configuration_error = "Конфігурація License Manager некоректна."
+            license_configuration_error = (
+                "Конфігурація License Manager некоректна."
+            )
     if log_plugin is None:
         log_plugin_error = "Log Collector зараз недоступний."
     else:
@@ -2011,7 +2082,7 @@ def _render_product_detail(
             if log_configuration is not None:
                 log_typed = log_plugin.typed_configuration(log_configuration)
         except ValueError:
-            configuration_error = "Конфігурація Log Collector некоректна."
+            log_configuration_error = "Конфігурація Log Collector некоректна."
 
     if registry_plugin is None:
         registry_plugin_error = "Windows Registry is unavailable."
@@ -2021,7 +2092,9 @@ def _render_product_detail(
                 registry_configuration
             )
         except ValueError:
-            configuration_error = "Windows Registry configuration is invalid."
+            registry_configuration_error = (
+                "Конфігурація Windows Registry некоректна."
+            )
 
     registry_inspection = results.get("registry_result")
     registry_comparisons: dict[str, RegistryChangePlan] = {}
@@ -2104,7 +2177,9 @@ def _render_product_detail(
         "registry_typed": registry_typed,
         "operation_logs": recent_operation_logs,
         "operation_log_error": operation_log_error,
-        "configuration_error": configuration_error,
+        "license_configuration_error": license_configuration_error,
+        "log_configuration_error": log_configuration_error,
+        "registry_configuration_error": registry_configuration_error,
         "license_plugin_available": license_plugin is not None,
         "log_plugin_available": log_plugin is not None,
         "registry_plugin_available": registry_plugin is not None,
@@ -2154,11 +2229,13 @@ def _render_product_detail(
         "restore_result_snapshot": None,
         "restore_source_names": {},
         "registry_workspace_open": (
-            registry_configuration is not None
-            or request.args.get("open") == "windows-registry"
+            request.args.get("open") == "windows-registry"
+            or registry_configuration_error is not None
             or "registry" in (request.endpoint or "")
             or any(key.startswith("registry_") for key in results)
         ),
+        "open_workspace": request.args.get("open", ""),
+        "product_setup_export_error": None,
         "registry_editing_preset_id": (
             request.form.get("original_id", "")
             if request.endpoint == "web.edit_registry_preset"

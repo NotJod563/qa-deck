@@ -238,6 +238,28 @@ def test_export_is_deterministic_product_scoped_and_contains_no_runtime_data(
     )
 
 
+def test_single_product_export_failure_renders_contextual_product_page(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = make_app(tmp_path)
+
+    def fail_export(self, product):
+        del self, product
+        raise RuntimeError("private export failure")
+
+    monkeypatch.setattr(ProductSetupService, "export", fail_export)
+
+    response = app.test_client().get("/products/sample/setup/export")
+    page = response.get_data(as_text=True)
+
+    assert response.status_code == 503
+    assert "Sample Product" in page
+    assert "Не вдалося створити файл налаштувань Product Setup" in page
+    assert "Експорт налаштувань" in page
+    assert "private export failure" not in page
+
+
 def test_bundle_export_is_deterministic_and_uses_selected_product_subset(
     tmp_path: Path,
 ) -> None:
@@ -427,7 +449,19 @@ def test_existing_name_conflict_is_visible_on_first_configuration_page(
     tmp_path: Path,
 ) -> None:
     app = make_app(tmp_path)
-    package = _portable_package("Sample Product")
+    package = _portable_package(
+        "Sample Product",
+        PluginSetupSection(
+            "windows-registry",
+            1,
+            {
+                "enabled": False,
+                "value_targets": [],
+                "branch_targets": [],
+                "presets_omitted": 0,
+            },
+        ),
+    )
     response = app.test_client().post(
         "/product-setup/import/configure",
         data={
@@ -442,7 +476,49 @@ def test_existing_name_conflict_is_visible_on_first_configuration_page(
     assert response.status_code == 200
     assert "Product із такою назвою вже існує" in page
     assert "field-attention" in page
+    assert 'class="setup-plugin-details" open' not in page
     assert "data-dialog-auto-open" not in page
+
+
+def test_plugin_import_warning_opens_plugin_details(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    document = ProductSetupBundle(
+        (
+            _portable_package(
+                "Unsupported Plugin Product",
+                PluginSetupSection("not-installed", 1, {}),
+            ),
+            _portable_package(
+                "Ready Plugin Product",
+                PluginSetupSection(
+                    "windows-registry",
+                    1,
+                    {
+                        "enabled": False,
+                        "value_targets": [],
+                        "branch_targets": [],
+                        "presets_omitted": 0,
+                    },
+                ),
+            ),
+        )
+    )
+
+    response = app.test_client().post(
+        "/product-setup/import/configure",
+        data={
+            "setup_file": (
+                BytesIO(json.dumps(document.to_dict()).encode()),
+                "setup.json",
+            )
+        },
+    )
+    page = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert page.count('class="setup-plugin-details"') == 2
+    assert page.count('class="setup-plugin-details" open') == 1
+    assert "Плагін недоступний або не підтримує імпорт" in page
 
 
 def test_import_rejects_ambiguous_or_duplicate_bundle_documents(

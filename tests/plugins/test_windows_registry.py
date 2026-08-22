@@ -761,6 +761,7 @@ def test_registry_redirect_and_validation_keep_workspace_and_editor_open(
     }
     configurations(app).upsert(configuration(plugin, presets=[preset]))
     client = app.test_client()
+    normal_page = client.get("/products/sample").get_data(as_text=True)
 
     redirected = client.post(
         "/products/sample/plugins/windows-registry/value-targets",
@@ -778,6 +779,9 @@ def test_registry_redirect_and_validation_keep_workspace_and_editor_open(
     invalid_page = invalid.get_data(as_text=True)
 
     assert "open=windows-registry" in redirected.location
+    assert '<details id="windows-registry" class="plugin-workspace" open>' not in (
+        normal_page
+    )
     assert '<details id="windows-registry" class="plugin-workspace" open>' in (
         redirected_page
     )

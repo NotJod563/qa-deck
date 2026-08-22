@@ -173,12 +173,17 @@ def test_create_snapshot_route_and_product_page_snapshot_listing(
         data={"label": "Initial snapshot"},
     )
     assert response.status_code == 302
-    assert response.location.endswith("/products/sample#snapshots")
+    assert response.location.endswith(
+        "/products/sample?open=snapshots#snapshots"
+    )
 
-    page = client.get("/products/sample").get_data(as_text=True)
+    page = client.get(response.location).get_data(as_text=True)
     assert 'id="snapshots"' in page
+    assert '<details id="snapshots" class="state-workspace" open>' in page
     assert "Initial snapshot" in page
     assert "Останні snapshots" in page
+    assert "Restore змінює підтримуваний runtime state лише після підтвердження" in page
+    assert "Лише читання" not in page
 
 
 def test_create_snapshot_route_rejects_invalid_label(tmp_path: Path) -> None:
@@ -697,8 +702,8 @@ def test_snapshot_actions_keep_stable_fragment_anchors(tmp_path: Path) -> None:
     )
     page = client.get("/products/sample").get_data(as_text=True)
 
-    assert first.location.endswith("/products/sample#snapshots")
-    assert second.location.endswith("/products/sample#snapshots")
+    assert first.location.endswith("/products/sample?open=snapshots#snapshots")
+    assert second.location.endswith("/products/sample?open=snapshots#snapshots")
     assert 'action="/products/sample/snapshots#snapshots"' in page
     assert "?snapshot=" in page and "#snapshot-diff" in page
     assert 'action="/products/sample/snapshots/compare#snapshot-diff"' in page

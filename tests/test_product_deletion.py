@@ -29,6 +29,20 @@ def _snapshots(app: Flask) -> SnapshotRepository:
     return cast(SnapshotRepository, app.extensions["snapshot_repository"])
 
 
+def test_product_delete_dialog_focuses_non_destructive_action(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+
+    page = app.test_client().get("/products/sample").get_data(as_text=True)
+    dialog = page[
+        page.index('id="product-delete-dialog"') : page.index(
+            "</dialog>", page.index('id="product-delete-dialog"')
+        )
+    ]
+
+    assert 'data-dialog-close autofocus' in dialog
+    assert 'class="button button-danger" type="submit" autofocus' not in dialog
+
+
 def test_product_deletion_removes_owned_metadata_but_not_runtime_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

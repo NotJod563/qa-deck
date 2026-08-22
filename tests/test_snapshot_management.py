@@ -65,7 +65,10 @@ def test_delete_route_requires_confirmation_and_redirects_to_snapshots(
     )
 
     assert response.status_code == 302
+    assert "open=snapshots" in response.location
     assert response.location.endswith("#snapshots")
+    page = client.get(response.location).get_data(as_text=True)
+    assert '<details id="snapshots" class="state-workspace" open>' in page
     assert repository.get("delete-me") is None
 
 

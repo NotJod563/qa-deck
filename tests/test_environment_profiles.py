@@ -305,11 +305,19 @@ def test_profile_crud_keeps_stable_id_and_does_not_mutate_runtime_or_snapshots(
     assert rejected.status_code == 400
     assert created.status_code == 302 and collision.status_code == 302
     assert updated.status_code == 302
+    assert "open=environment-profiles" in created.headers["Location"]
     assert created.headers["Location"].endswith("#environment-profiles")
+    assert "open=environment-profiles" in updated.headers["Location"]
     assert updated.headers["Location"].endswith("#environment-profiles")
     assert created_profile is not None and created_profile.license_states == ()
     assert rejected_delete.status_code == 400 and deleted.status_code == 302
+    assert "open=environment-profiles" in deleted.headers["Location"]
     assert deleted.headers["Location"].endswith("#environment-profiles")
+    page = client.get(deleted.headers["Location"]).get_data(as_text=True)
+    assert (
+        '<details id="environment-profiles" class="state-workspace" open>'
+        in page
+    )
     assert environment_profiles(app).get("sample", "qa-debug") is None
     assert environment_profiles(app).get("sample", "qa-debug-2") is not None
     assert snapshot_repository.list_for_product("sample") == snapshots_before

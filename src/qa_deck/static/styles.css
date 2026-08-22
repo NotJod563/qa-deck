@@ -959,6 +959,28 @@ code {
   display: contents;
 }
 
+.product-tools-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.product-tools-nav a {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--surface);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.product-tools-nav a:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
 .plugin-workspace {
   order: 1;
   min-width: 0;
@@ -1573,6 +1595,13 @@ details.registry-workspace-section > summary {
   margin: 14px 0 0;
   color: var(--text-muted);
   font-size: 0.84rem;
+}
+
+.workspace-return-link {
+  display: inline-flex;
+  margin-top: 18px;
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .plugin-result-slot {

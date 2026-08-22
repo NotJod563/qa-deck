@@ -1,0 +1,200 @@
+{
+  "description": "Local controlled measurements of representative QA Deck MVP operations; these are not production benchmarks.",
+  "environment": {
+    "python_version": "3.13.5",
+    "operating_system": "Windows",
+    "machine_platform": "Windows-11-10.0.26200-SP0",
+    "logical_cpu_count": 16,
+    "git_commit": "373d5bb863c1ce2e5139e19162a79732c6e20e95",
+    "timestamp": "2026-08-22T16:45:58.429395+00:00"
+  },
+  "results": [
+    {
+      "benchmark": "Web rendering",
+      "case": "Products list GET",
+      "iterations": 20,
+      "mean_ms": 0.636,
+      "median_ms": 0.628,
+      "p95_ms": 0.713,
+      "min_ms": 0.612,
+      "max_ms": 0.721,
+      "notes": "Complete Flask test-client request and response for one Product."
+    },
+    {
+      "benchmark": "Web rendering",
+      "case": "Configured Product detail GET",
+      "iterations": 20,
+      "mean_ms": 1.956,
+      "median_ms": 1.929,
+      "p95_ms": 2.163,
+      "min_ms": 1.903,
+      "max_ms": 2.169,
+      "notes": "Complete Flask request and response with representative plugin settings."
+    },
+    {
+      "benchmark": "Snapshot Capture",
+      "case": "10 resources",
+      "iterations": 20,
+      "mean_ms": 0.052,
+      "median_ms": 0.051,
+      "p95_ms": 0.056,
+      "min_ms": 0.05,
+      "max_ms": 0.065,
+      "notes": "Actual SnapshotBuilder with one deterministic synthetic provider."
+    },
+    {
+      "benchmark": "Snapshot Capture",
+      "case": "100 resources",
+      "iterations": 20,
+      "mean_ms": 0.08,
+      "median_ms": 0.078,
+      "p95_ms": 0.089,
+      "min_ms": 0.076,
+      "max_ms": 0.089,
+      "notes": "Actual SnapshotBuilder with one deterministic synthetic provider."
+    },
+    {
+      "benchmark": "Snapshot Capture",
+      "case": "1000 resources",
+      "iterations": 20,
+      "mean_ms": 0.321,
+      "median_ms": 0.32,
+      "p95_ms": 0.329,
+      "min_ms": 0.311,
+      "max_ms": 0.337,
+      "notes": "Actual SnapshotBuilder with one deterministic synthetic provider."
+    },
+    {
+      "benchmark": "Snapshot Diff",
+      "case": "approximately 10 resources",
+      "iterations": 20,
+      "mean_ms": 0.276,
+      "median_ms": 0.254,
+      "p95_ms": 0.433,
+      "min_ms": 0.242,
+      "max_ms": 0.433,
+      "notes": "Actual SnapshotDiffer; unchanged, changed, added, and removed mix."
+    },
+    {
+      "benchmark": "Snapshot Diff",
+      "case": "approximately 100 resources",
+      "iterations": 20,
+      "mean_ms": 2.318,
+      "median_ms": 2.281,
+      "p95_ms": 2.511,
+      "min_ms": 2.237,
+      "max_ms": 2.604,
+      "notes": "Actual SnapshotDiffer; unchanged, changed, added, and removed mix."
+    },
+    {
+      "benchmark": "Snapshot Diff",
+      "case": "approximately 1000 resources",
+      "iterations": 20,
+      "mean_ms": 26.382,
+      "median_ms": 24.836,
+      "p95_ms": 33.022,
+      "min_ms": 24.058,
+      "max_ms": 34.904,
+      "notes": "Actual SnapshotDiffer; unchanged, changed, added, and removed mix."
+    },
+    {
+      "benchmark": "Product Setup serialization",
+      "case": "1 Product",
+      "iterations": 20,
+      "mean_ms": 1.96,
+      "median_ms": 1.871,
+      "p95_ms": 2.683,
+      "min_ms": 1.338,
+      "max_ms": 2.941,
+      "notes": "Actual service export, bundle validation, and JSON serialization."
+    },
+    {
+      "benchmark": "Product Setup parsing/preview",
+      "case": "1 Product",
+      "iterations": 20,
+      "mean_ms": 5.315,
+      "median_ms": 5.016,
+      "p95_ms": 7.557,
+      "min_ms": 4.065,
+      "max_ms": 8.517,
+      "notes": "Actual upload parsing, validation, preparation, review, and preview render; no import confirmation."
+    },
+    {
+      "benchmark": "Product Setup serialization",
+      "case": "10 Products",
+      "iterations": 20,
+      "mean_ms": 15.693,
+      "median_ms": 15.286,
+      "p95_ms": 19.319,
+      "min_ms": 13.77,
+      "max_ms": 23.666,
+      "notes": "Actual service export, bundle validation, and JSON serialization."
+    },
+    {
+      "benchmark": "Product Setup parsing/preview",
+      "case": "10 Products",
+      "iterations": 20,
+      "mean_ms": 21.966,
+      "median_ms": 21.347,
+      "p95_ms": 25.992,
+      "min_ms": 20.858,
+      "max_ms": 26.778,
+      "notes": "Actual upload parsing, validation, preparation, review, and preview render; no import confirmation."
+    },
+    {
+      "benchmark": "Product Setup serialization",
+      "case": "50 Products",
+      "iterations": 20,
+      "mean_ms": 79.726,
+      "median_ms": 81.346,
+      "p95_ms": 93.856,
+      "min_ms": 66.63,
+      "max_ms": 104.039,
+      "notes": "Actual service export, bundle validation, and JSON serialization."
+    },
+    {
+      "benchmark": "Product Setup parsing/preview",
+      "case": "50 Products",
+      "iterations": 20,
+      "mean_ms": 124.569,
+      "median_ms": 120.099,
+      "p95_ms": 145.03,
+      "min_ms": 110.904,
+      "max_ms": 155.293,
+      "notes": "Actual upload parsing, validation, preparation, review, and preview render; no import confirmation."
+    },
+    {
+      "benchmark": "Log Collector scan/archive",
+      "case": "100 small files",
+      "iterations": 20,
+      "mean_ms": 226.533,
+      "median_ms": 221.951,
+      "p95_ms": 267.649,
+      "min_ms": 213.425,
+      "max_ms": 267.945,
+      "notes": "Actual bounded scan and ZIP creation over 100 synthetic files."
+    },
+    {
+      "benchmark": "Log Collector scan/archive",
+      "case": "1000 small files",
+      "iterations": 20,
+      "mean_ms": 2264.565,
+      "median_ms": 2178.178,
+      "p95_ms": 2633.283,
+      "min_ms": 2124.656,
+      "max_ms": 2636.441,
+      "notes": "Actual bounded scan and ZIP creation over 1000 synthetic files."
+    },
+    {
+      "benchmark": "Log Collector scan/archive",
+      "case": "approximately 10 MB total",
+      "iterations": 20,
+      "mean_ms": 100.6,
+      "median_ms": 100.004,
+      "p95_ms": 104.757,
+      "min_ms": 97.645,
+      "max_ms": 109.49,
+      "notes": "Actual bounded scan and ZIP creation over 10 synthetic files."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+benchmark,case,iterations,mean_ms,median_ms,p95_ms,min_ms,max_ms,notes
+Web rendering,Products list GET,20,0.636,0.628,0.713,0.612,0.721,Complete Flask test-client request and response for one Product.
+Web rendering,Configured Product detail GET,20,1.956,1.929,2.163,1.903,2.169,Complete Flask request and response with representative plugin settings.
+Snapshot Capture,10 resources,20,0.052,0.051,0.056,0.05,0.065,Actual SnapshotBuilder with one deterministic synthetic provider.
+Snapshot Capture,100 resources,20,0.08,0.078,0.089,0.076,0.089,Actual SnapshotBuilder with one deterministic synthetic provider.
+Snapshot Capture,1000 resources,20,0.321,0.32,0.329,0.311,0.337,Actual SnapshotBuilder with one deterministic synthetic provider.
+Snapshot Diff,approximately 10 resources,20,0.276,0.254,0.433,0.242,0.433,"Actual SnapshotDiffer; unchanged, changed, added, and removed mix."
+Snapshot Diff,approximately 100 resources,20,2.318,2.281,2.511,2.237,2.604,"Actual SnapshotDiffer; unchanged, changed, added, and removed mix."
+Snapshot Diff,approximately 1000 resources,20,26.382,24.836,33.022,24.058,34.904,"Actual SnapshotDiffer; unchanged, changed, added, and removed mix."
+Product Setup serialization,1 Product,20,1.96,1.871,2.683,1.338,2.941,"Actual service export, bundle validation, and JSON serialization."
+Product Setup parsing/preview,1 Product,20,5.315,5.016,7.557,4.065,8.517,"Actual upload parsing, validation, preparation, review, and preview render; no import confirmation."
+Product Setup serialization,10 Products,20,15.693,15.286,19.319,13.77,23.666,"Actual service export, bundle validation, and JSON serialization."
+Product Setup parsing/preview,10 Products,20,21.966,21.347,25.992,20.858,26.778,"Actual upload parsing, validation, preparation, review, and preview render; no import confirmation."
+Product Setup serialization,50 Products,20,79.726,81.346,93.856,66.63,104.039,"Actual service export, bundle validation, and JSON serialization."
+Product Setup parsing/preview,50 Products,20,124.569,120.099,145.03,110.904,155.293,"Actual upload parsing, validation, preparation, review, and preview render; no import confirmation."
+Log Collector scan/archive,100 small files,20,226.533,221.951,267.649,213.425,267.945,Actual bounded scan and ZIP creation over 100 synthetic files.
+Log Collector scan/archive,1000 small files,20,2264.565,2178.178,2633.283,2124.656,2636.441,Actual bounded scan and ZIP creation over 1000 synthetic files.
+Log Collector scan/archive,approximately 10 MB total,20,100.6,100.004,104.757,97.645,109.49,Actual bounded scan and ZIP creation over 10 synthetic files.
